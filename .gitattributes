@@ -1,0 +1,17 @@
+* text=auto eol=lf
+
+*.rcp text eol=lf
+*.c   text eol=lf
+*.h   text eol=lf
+*.mjs text eol=lf
+*.md  text eol=lf
+*.txt text eol=lf
+*.gitignore text eol=lf
+*.gitattributes text eol=lf
+
+*.bmp binary
+*.ttf binary
+*.prc binary
+*.pdb binary
+*.mcp binary
+*.rom binary

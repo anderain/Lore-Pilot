@@ -1,0 +1,123 @@
+// lore-pilot 8x8 atlas, MSB-first, '#' = ink, '.' = paper
+// Each block: exactly 8 rows x 8 columns.
+// Codes must be contiguous 0..N-1 (one PDB record per glyph).
+//
+// 0..7   thematic glyphs
+// 8..10  diagnostic glyphs (bit order, row order, asymmetric shapes)
+//
+// @text blocks are rasterized from the bundled 8px pixel font at pack time.
+// They are appended after the hand-drawn glyphs, in first-occurrence order.
+// Phase A uses code points that fit in 16 bits, because the text record stores
+// glyph indices and the test form only needs the sequence.
+
+@text 诸天气荡荡，我道日兴隆
+
+@book 0
+........
+.######.
+.#....##
+.#....##
+.#....##
+.#....##
+.#....##
+.######.
+
+@sword 1
+...##...
+...##...
+...##...
+...##...
+.######.
+...##...
+...##...
+..####..
+
+@potion 2
+...##...
+...##...
+..####..
+..#..#..
+.#....#.
+.#.##.#.
+.#.##.#.
+..####..
+
+@key 3
+........
+.###....
+#...#...
+#...#...
+.###....
+..#####.
+..#..#..
+........
+
+@chest 4
+........
+.######.
+.#....#.
+.######.
+.#.##.#.
+.#.##.#.
+.######.
+........
+
+@scroll 5
+.##..##.
+########
+.#....#.
+.#....#.
+.#....#.
+.#....#.
+########
+.##..##.
+
+@heart 6
+.##..##.
+########
+########
+########
+.######.
+..####..
+...##...
+........
+
+@skull 7
+..####..
+.######.
+##.##.##
+##.##.##
+.######.
+..#..#..
+..#..#..
+..####..
+
+@checker 8
+#.#.#.#.
+.#.#.#.#
+#.#.#.#.
+.#.#.#.#
+#.#.#.#.
+.#.#.#.#
+#.#.#.#.
+.#.#.#.#
+
+@corner 9
+#.......
+.######.
+.#....#.
+.#....#.
+.#....#.
+.#....#.
+.#....#.
+.######.
+
+@F 10
+########
+#.......
+#.......
+#####...
+#.......
+#.......
+#.......
+........

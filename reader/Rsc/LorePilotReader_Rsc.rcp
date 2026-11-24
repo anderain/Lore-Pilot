@@ -1,0 +1,59 @@
+// LorePilotReader_Rsc.rcp
+//
+// PilRC resources for LorePilotReader.
+// Palm OS 2.0-safe subset only:
+//   - plain ICON / SMALLICON (no icon families)
+//   - TITLE / BUTTON / ALERT
+//   - no menus, no Graffiti state indicator, no NOSAVEBEHIND
+//
+// IDs are symbolic: PilRC assigns them (RESETAUTOID 1000 upward) and writes
+// LorePilotReader_Rsc.h, which is the single source of truth for the C code.
+// Keep the declaration order stable so generated IDs remain stable.
+
+GENERATEHEADER "LorePilotReader_Rsc.h"
+RESETAUTOID 1000
+
+ALERT ID RomIncompatibleAlert
+    DEFAULTBUTTON 0
+    ERROR
+BEGIN
+    TITLE "System Incompatible"
+    MESSAGE "Palm OS 2.0 or greater is required to run this application."
+    BUTTONS "OK"
+END
+
+ALERT ID AboutAlert
+    DEFAULTBUTTON 0
+    INFORMATION
+BEGIN
+    TITLE "About"
+    MESSAGE "LorePilot Reader\rGlyph database test\r\rReads LPGlyph8.pdb and LPGB2312*.pdb"
+    BUTTONS "OK"
+END
+
+FORM ID MainForm AT (0 0 160 160)
+BEGIN
+    TITLE "LorePilotReader"
+    BUTTON "Glyph Test" ID MainGlyphTestButton AT (30 48 100 14)
+    BUTTON "GB Test"    ID MainGbTestButton    AT (30 68 100 14)
+    BUTTON "About"      ID MainAboutButton      AT (30 88 100 14)
+END
+
+FORM ID GlyphTestForm AT (0 0 160 160)
+    NOFRAME
+BEGIN
+    BUTTON "Reload" ID GlyphTestReloadButton AT (2 146 52 12)
+    BUTTON "Back"   ID GlyphTestBackButton   AT (106 146 52 12)
+END
+
+FORM ID GbTestForm AT (0 0 160 160)
+    NOFRAME
+BEGIN
+    BUTTON "Prev" ID GbTestPrevButton AT (2 146 38 12)
+    BUTTON "Next" ID GbTestNextButton AT (42 146 38 12)
+    BUTTON "Load" ID GbTestLoadButton AT (82 146 38 12)
+    BUTTON "Back" ID GbTestBackButton AT (122 146 38 12)
+END
+
+ICON ID 1000 "icon-lg-1.bmp"
+SMALLICON ID 1001 "icon-sm-1.bmp"

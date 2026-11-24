@@ -1,0 +1,39 @@
+# ---- Palm OS build outputs ----
+reader/Debug/
+reader/Release/
+reader/LorePilotReader_Data/
+*.prc
+*.MAP
+*.psym
+*.o
+*.obj
+*.lib
+*.tdt
+*.stg
+*.ro
+*.rsrc
+*.seg
+*.pch
+*.pch++
+Resource.frk/
+*.rsrc.c
+*.rsrc.h
+
+# ---- font-packer generated output ----
+font-packer/out/
+
+# ---- fonts are fetched by the user (see README) ----
+/*.ttf
+
+# ---- Node ----
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# ---- Editors / OS ----
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
