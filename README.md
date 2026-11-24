@@ -103,7 +103,29 @@ reader/
   Rsc/                    PilRC 资源、图标位图、生成的资源 ID 头
   Src/                    应用源码、字体列表与生成的字模头
   LorePilotReader.mcp     CodeWarrior 工程
+lore-teller/              Vue 3 网页：TXT → 分卷书页 PDB
+  src/lib/                解码、GB2312、断行、分页、PDB 写入、渲染
+  docs/text-pdb.md        LPBK 格式（Palm 端实现依据）
+  public/fonts/           预览字库（不入库，见 lore-teller/README）
 ```
+
+## 书页 PDB（lore-teller）
+
+`lore-teller` 把 TXT 排版成 160×160 书页，输出 `LPB_<NAME>_<NN>.pdb`
+（type `LPBK`，creator `LPRD`）。每页一条记录，行偏移表在记录内，翻页即
+记录跳转；分卷头带 `firstPage / totalPages`，所以全局页码连续。
+
+```powershell
+cd lore-teller
+npm install
+node ../font-packer/src/pack-gb2312.mjs --level full
+node ../font-packer/src/pack-gb2312.mjs --level full --cell 12
+Copy-Item ..\font-packer\out\LPF08F.pdb public\fonts\
+Copy-Item ..\font-packer\out\LPF12F.pdb public\fonts\
+npm run dev
+```
+
+格式与字段见 `lore-teller/docs/text-pdb.md`。Palm 端读取书页 PDB 是下一步。
 
 ## 已知限制
 
