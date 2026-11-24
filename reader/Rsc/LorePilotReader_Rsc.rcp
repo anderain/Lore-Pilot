@@ -101,7 +101,7 @@ FORM ID MainForm AT (0 0 160 160)
 BEGIN
     TITLE "Bookshelf"
 
-    LABEL "Books (volumes)" ID MainBooksLabel       AT (2 16)
+    LABEL "Books"           ID MainBooksLabel       AT (2 16)
     LIST ""                 ID MainBookList         AT (2 27 156 46) VISIBLEITEMS 4
     BUTTON "Read"           ID MainReadButton       AT (2 74 46 13)
     BUTTON "Del"            ID MainDeleteBookButton AT (52 74 30 13)
