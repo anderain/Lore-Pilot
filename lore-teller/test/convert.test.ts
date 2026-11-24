@@ -79,6 +79,7 @@ function readPdb(buf: Uint8Array) {
     linesPerPage: h16(12),
     partIndex: h16(18),
     partCount: h16(20),
+    progressRows: h16(42),
     firstPage: h32(24),
     pageCount: h32(28),
     totalPages: h32(32),
@@ -131,7 +132,7 @@ describe('line wrapping', () => {
 });
 
 describe('conversion', () => {
-  it('produces the documented header and one page per 18 lines (8px)', () => {
+  it('produces the documented header and one page per 17 lines (8px)', () => {
     const result = convertText(encode(qianziwen, 'utf-8'), {
       displayName: 'QZW',
       cell: 8,
@@ -147,7 +148,8 @@ describe('conversion', () => {
     expect(pd.version).toBe(1);
     expect(pd.cell).toBe(8);
     expect(pd.charsPerLine).toBe(20);
-    expect(pd.linesPerPage).toBe(18);
+    expect(pd.linesPerPage).toBe(17);
+    expect(pd.progressRows).toBe(2);
     expect(pd.partIndex).toBe(0);
     expect(pd.partCount).toBe(1);
     expect(pd.firstPage).toBe(1);
@@ -156,7 +158,7 @@ describe('conversion', () => {
     expect(pd.pages.length).toBe(result.totalPages);
     expect(pd.pages[0].lines.join('')).toContain('天地玄黄');
     for (const page of pd.pages) {
-      expect(page.lineCount).toBeLessThanOrEqual(18);
+      expect(page.lineCount).toBeLessThanOrEqual(17);
       for (const line of page.lines) expect([...line].length).toBeLessThanOrEqual(20);
     }
   });
@@ -234,8 +236,8 @@ describe('conversion', () => {
     ).toThrow(/99/);
   });
 
-  it('uses 13 chars per line and 12 lines per page at 12px', () => {
-    expect(CELL_CONFIG[12]).toEqual({ charsPerLine: 13, linesPerPage: 12 });
+  it('uses 13 chars per line and 11 lines per page at 12px', () => {
+    expect(CELL_CONFIG[12]).toEqual({ charsPerLine: 13, linesPerPage: 11 });
     const result = convertText(encode(qianziwen, 'gbk'), {
       displayName: 'Q12',
       cell: 12,
@@ -245,9 +247,9 @@ describe('conversion', () => {
     const pd = readPdb(result.parts[0].bytes);
     expect(pd.cell).toBe(12);
     expect(pd.charsPerLine).toBe(13);
-    expect(pd.linesPerPage).toBe(12);
+    expect(pd.linesPerPage).toBe(11);
     for (const page of pd.pages) {
-      expect(page.lineCount).toBeLessThanOrEqual(12);
+      expect(page.lineCount).toBeLessThanOrEqual(11);
       for (const line of page.lines) expect([...line].length).toBeLessThanOrEqual(13);
     }
   });

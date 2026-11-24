@@ -39,6 +39,7 @@ console.log(`cell          ${h16(8)}x${h16(8)}`);
 console.log(`chars/line    ${h16(10)}`);
 console.log(`lines/page    ${h16(12)}`);
 console.log(`header/footer ${h16(14)}/${h16(16)} rows`);
+console.log(`progress      ${h16(42)} rows (0 = old layout)`);
 console.log(`part          ${h16(18) + 1}/${h16(20)}`);
 console.log(`pages         first ${h32(24)}, this part ${h32(28)}, total ${h32(32)}`);
 console.log(`display name  ${header.toString('ascii', 44, 60).replace(/\0.*$/, '')}`);

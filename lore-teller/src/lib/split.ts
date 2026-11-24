@@ -12,6 +12,9 @@ import {
 } from './textPdb';
 import type { Page } from './paginate';
 
+/** Progress bar rows written into every header (border + fill). */
+export const PROGRESS_ROWS = 2;
+
 export interface BuildOptions {
   displayName: string;
   cell: 8 | 12;
@@ -87,6 +90,7 @@ export function buildTextParts(pages: Page[], options: BuildOptions): BuildResul
       cell: options.cell,
       charsPerLine: options.charsPerLine,
       linesPerPage: options.linesPerPage,
+      progressRows: PROGRESS_ROWS,
       partIndex,
       partCount: groups.length,
       firstPage,

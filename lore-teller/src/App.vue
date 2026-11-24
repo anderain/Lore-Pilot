@@ -126,8 +126,9 @@ async function generate() {
     />
 
     <footer class="pt-4 text-xs text-stone-400">
-      版面：160×160，顶部 8 行显示名称与页码，正文 {{ result?.charsPerLine ?? 20 }} 字/行，
-      底部 PREV / MENU / NEXT。
+      版面：160×160，顶部 8 行黑底显示名称与页码，正文 {{ result?.charsPerLine ?? 20 }} 字/行、
+      {{ result?.linesPerPage ?? 17 }} 行/页并垂直居中，顶部底部反色，
+      最底 2 行是进度条，底部 PREV / MENU / NEXT。
     </footer>
   </main>
 </template>

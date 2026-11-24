@@ -26,6 +26,8 @@ export interface TextPdbHeader {
   cell: 8 | 12;
   charsPerLine: number;
   linesPerPage: number;
+  /** Progress bar height in pixels (0 = old layout, no bar). */
+  progressRows: number;
   partIndex: number;
   partCount: number;
   firstPage: number;
@@ -122,7 +124,7 @@ export function buildHeaderRecord(h: TextPdbHeader): Uint8Array {
   write16(10, h.charsPerLine);
   write16(12, h.linesPerPage);
   write16(14, 8);                      // headerRows
-  write16(16, 8);                      // footerRows
+  write16(16, 8);                      // footerRows (text only)
   write16(18, h.partIndex);
   write16(20, h.partCount);
   write16(22, TEXT_DB_ENCODING_GB2312);
@@ -131,7 +133,7 @@ export function buildHeaderRecord(h: TextPdbHeader): Uint8Array {
   write32(32, h.totalPages);
   write32(36, 0);                      // textBytes, filled by caller? informational
   write16(40, 1);                      // pageRecordStart
-  write16(42, 0);                      // reserved
+  write16(42, h.progressRows);         // progress bar rows (0 for old files)
 
   const name = h.displayName.slice(0, 16);
   for (let i = 0; i < name.length; i++) out[44 + i] = name.charCodeAt(i) & 0x7f;

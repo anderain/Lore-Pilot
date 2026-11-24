@@ -71,7 +71,8 @@ function readPart(buf: Uint8Array) {
 function writeBmp(file: string, bits: Uint8Array, scaleFactor: number) {
   const w = SCREEN_W * scaleFactor;
   const h = SCREEN_H * scaleFactor;
-  const rowBytes = Math.ceil(w / 4) * 4;
+  // 24bpp rows are padded to a 4-byte boundary: rowBytes = ((w*3 + 3) & ~3).
+  const rowBytes = (w * 3 + 3) & ~3;
   const dataSize = rowBytes * h;
   const out = Buffer.alloc(54 + dataSize);
 

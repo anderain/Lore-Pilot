@@ -17,9 +17,9 @@ big-endian. The file name and the Palm database name are identical:
 | 6 | u16 | flags | bit 0 reserved, currently 0 |
 | 8 | u16 | cell | 8 or 12 (body glyph size) |
 | 10 | u16 | charsPerLine | 20 (8px) or 13 (12px), informational |
-| 12 | u16 | linesPerPage | 18 (8px) or 12 (12px) |
+| 12 | u16 | linesPerPage | 17 (8px) or 11 (12px) |
 | 14 | u16 | headerRows | 8 |
-| 16 | u16 | footerRows | 8 |
+| 16 | u16 | footerRows | 8 (text rows only) |
 | 18 | u16 | partIndex | 0-based |
 | 20 | u16 | partCount | total parts for this book |
 | 22 | u16 | encoding | 1 = GB2312 body |
@@ -28,7 +28,7 @@ big-endian. The file name and the Palm database name are identical:
 | 32 | u32 | totalPages | pages in the whole book |
 | 36 | u32 | textBytes | reserved (0) |
 | 40 | u16 | pageRecordStart | 1 |
-| 42 | u16 | reserved | 0 |
+| 42 | u16 | progressRows | 2 (border + fill); 0 = old layout |
 | 44 | char[17] | displayName | 16 chars + NUL, ASCII alnum only |
 
 ## Record 1..N (one page)
@@ -45,8 +45,8 @@ u8  text[textLen]        // GB2312 double bytes
 - A line shorter than `charsPerLine` is not padded: horizontal position is
   implied by the glyph order; the renderer just draws them left to right.
 - An empty line has `lineEnd[i] == lineEnd[i-1]`, i.e. zero bytes.
-- Maximum body per page: 20 lines x 20 chars x 2 bytes = 800 bytes (8px),
-  12 x 13 x 2 = 312 bytes (12px). Well below the 64KB record limit.
+- Maximum body per page: 17 lines x 20 chars x 2 bytes = 680 bytes (8px),
+  11 x 13 x 2 = 286 bytes (12px). Well below the 64KB record limit.
 
 ## Body encoding
 
@@ -61,12 +61,24 @@ The body is pure GB2312 with one character per cell:
 
 ## Page geometry (160x160)
 
-| cell | body rows | row height | chars/line | line width |
-|---|---|---|---|---|
-| 8 | y 8..151 | 8 | 20 | 160 |
-| 12 | y 8..151 | 12 | 13 | 156 (4px right margin) |
+| region | rows | style |
+|---|---|---|
+| header | y 0..7 (8) | black band, white 6x8 ASCII: displayName + page/total |
+| body | y 8..149 (142) | white, glyph font, vertically centred |
+| footer | y 150..157 (8) | black band, white 6x8 ASCII: PREV MENU NEXT |
+| progress border | y 158 | white line across the full width |
+| progress fill | y 159 | white up to `160 * page / total` |
 
-Header (y 0..7) and footer (y 152..159) use the 6x8 `FontHybird` ASCII font.
+| cell | lines per page | content height | top offset | first row |
+|---|---|---|---|---|
+| 8 | 17 | 136 | (142-136)/2 = 3 | y = 11 |
+| 12 | 11 | 132 | (142-132)/2 = 5 | y = 13 |
+
+Body height is `160 - headerRows - footerRows - progressRows`. A page with
+fewer lines is centred in that band, so short pages stay balanced.
+
+`progressRows` (offset 42) is 2 for new files. Readers must treat 0 as the old
+layout: body 8..151, no progress bar, and 18 / 12 lines per page.
 
 ## Splitting
 

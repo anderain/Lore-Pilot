@@ -26,8 +26,8 @@ export interface ConvertResult extends BuildResult {
 }
 
 export const CELL_CONFIG = {
-  8: { charsPerLine: 20, linesPerPage: 18 },
-  12: { charsPerLine: 13, linesPerPage: 12 },
+  8: { charsPerLine: 20, linesPerPage: 17 },
+  12: { charsPerLine: 13, linesPerPage: 11 },
 } as const;
 
 export function displayNameFromFile(fileName: string): string {
