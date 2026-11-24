@@ -404,6 +404,8 @@ Boolean ReaderFormRequest(const Char *displayName, UInt16 cell)
     gReaderCell = (UInt16)((cell == 12) ? 12 : 8);
 
     if (!ReaderLoadPart(1, 0)) {
+        /* Drop any book left open by an earlier session. */
+        ReaderFormClose();
         return false;
     }
 
