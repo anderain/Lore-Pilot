@@ -140,7 +140,9 @@ export function renderScreen(
 
   // Footer: white text on black.
   drawAsciiText(bits, 'PREV', 2, FOOTER_Y, 0);
-  drawAsciiText(bits, 'MENU', 74, FOOTER_Y, 0);
+  // "MENU" is 4 chars = 24 px, so x = (160 - 24) / 2 = 68 puts it exactly
+  // on the screen centre line.
+  drawAsciiText(bits, 'MENU', (SCREEN_W - 4 * 6) / 2, FOOTER_Y, 0);
   drawAsciiText(bits, 'NEXT', 134, FOOTER_Y, 0);
 
   // Progress: solid white border line, then a white fill segment.

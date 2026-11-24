@@ -22,6 +22,9 @@ export const PROGRESS_ROWS = 2;
 /** Default pages per volume: 100 pages is about 70 KB at 8px. */
 export const DEFAULT_PAGES_PER_PART = 100;
 
+/** Selectable volumes sizes in the web app, in pages. */
+export const PAGES_PER_PART_OPTIONS = [100, 200, 500] as const;
+
 export interface BuildOptions {
   displayName: string;
   cell: 8 | 12;

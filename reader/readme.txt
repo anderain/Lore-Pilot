@@ -87,7 +87,8 @@ Reader layout (matches lore-teller/src/lib/render.ts):
 
   y 0..7      black band, white 6x8 ASCII: book name + global page/total
   y 8..149    white body, glyph font, vertically centred
-  y 150..157  black band, white 6x8 ASCII: PREV  MENU  NEXT
+  y 150..157  black band, white 6x8 ASCII: PREV, MENU (centred at x=68),
+              NEXT
   y 158       white progress border
   y 159       white progress fill (160 * page / total)
 

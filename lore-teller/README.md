@@ -38,7 +38,7 @@ Copy-Item font-packer\out\LPF12F.pdb lore-teller\public\fonts\
 ## 界面流程
 
 1. 拖入或选择 `.txt`（UTF-8 / GBK 自动检测，可手动切换）；
-2. 选择每卷页数（50 / 100 / 200，默认 100）、字号（8px / 12px）、display name（1–16 位字母数字）；
+2. 从下拉框选择每卷页数（100 / 200 / 500，默认 100）、字号（8px / 12px）、display name（1–16 位字母数字）；
 3. 点“生成 PDB”，得到卷列表；
 4. 每卷可以预览（160×160，4× 放大）或下载；多卷时可“下载全部”。
 

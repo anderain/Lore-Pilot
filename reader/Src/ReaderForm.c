@@ -200,7 +200,9 @@ static void ReaderDrawFooter(void)
     ReaderFillBand(top, (UInt16)(rows + progressRows));
 
     UiFontDrawText(2, (Int16)top, "PREV", true);
-    UiFontDrawText(74, (Int16)top, "MENU", true);
+    /* "MENU" is 4 chars * 6 px = 24 px; this centres it on x=80 exactly. */
+    UiFontDrawText((Int16)((kReaderW - 4 * kUiFontWidth) / 2), (Int16)top,
+                   "MENU", true);
     UiFontDrawText(134, (Int16)top, "NEXT", true);
 
     if (progressRows < kReaderProgressRows) {

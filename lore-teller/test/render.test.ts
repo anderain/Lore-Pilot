@@ -85,6 +85,39 @@ describe('screen renderer', () => {
     expect(fillInk).toBe(80);
   });
 
+  it('centres the footer MENU label exactly', () => {
+    const bits = renderScreen(
+      { displayName: 'X', page: { lines: ['天'] }, pageNumber: 1, totalPages: 1 },
+      font8,
+      8,
+    );
+
+    // PREV starts at x=2 and NEXT at x=134, so scanning 30..130 sees only MENU.
+    // The footer band is black, so the glyph pixels are the zeroes (white).
+    let first = -1;
+    let last = -1;
+    for (let x = 30; x <= 130; x++) {
+      let ink = false;
+      for (let y = 150; y < 158; y++) {
+        if (bits[y * SCREEN_W + x] === 0) {
+          ink = true;
+          break;
+        }
+      }
+      if (ink) {
+        if (first < 0) first = x;
+        last = x;
+      }
+    }
+
+    // The label box is 4 glyphs * 6px = 24px, so it starts at (160-24)/2 = 68
+    // and its centre lands exactly on the 80px screen centre.
+    expect(first).toBe(68);
+    expect(first + 12).toBe(SCREEN_W / 2);
+    // Ink never runs into the neighbouring PREV/NEXT boxes.
+    expect(last).toBeLessThan(68 + 24);
+  });
+
   it('centres the body vertically', () => {
     const bits = renderScreen(
       { displayName: 'X', page: { lines: ['天'] }, pageNumber: 1, totalPages: 1 },

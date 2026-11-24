@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import type { TextEncoding } from '../lib/decode';
+import { PAGES_PER_PART_OPTIONS } from '../lib/split';
 
 export interface Options {
   displayName: string;
@@ -8,6 +9,8 @@ export interface Options {
   pagesPerPart: number;
   encoding: TextEncoding;
 }
+
+const PAGE_COUNTS = PAGES_PER_PART_OPTIONS;
 
 const props = defineProps<{
   modelValue: Options;
@@ -30,12 +33,6 @@ function onNameInput(event: Event) {
   const cleaned = raw.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 16);
   patch({ displayName: cleaned });
 }
-
-const limits = [
-  { label: '50 页', value: 50 },
-  { label: '100 页', value: 100 },
-  { label: '200 页', value: 200 },
-];
 
 const cells = [
   { label: '8px', value: 8 as const },
@@ -79,19 +76,15 @@ const cells = [
 
       <div>
         <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">每卷页数</span>
-        <div class="flex gap-2">
-          <button
-            v-for="limit in limits"
-            :key="limit.value"
-            class="flex-1 rounded-lg border border-stone-300 px-2 py-2 text-sm"
-            :class="modelValue.pagesPerPart === limit.value
-              ? 'border-stone-900 bg-stone-900 text-white'
-              : 'border-stone-300 bg-white text-stone-700 hover:border-stone-500'"
-            @click="patch({ pagesPerPart: limit.value })"
-          >
-            {{ limit.label }}
-          </button>
-        </div>
+        <select
+          class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
+          :value="modelValue.pagesPerPart"
+          @change="patch({ pagesPerPart: Number(($event.target as HTMLSelectElement).value) })"
+        >
+          <option v-for="count in PAGE_COUNTS" :key="count" :value="count">
+            {{ count }} 页 / 卷
+          </option>
+        </select>
         <span class="mt-1 block text-xs text-stone-400">每卷可单独装进 Palm</span>
       </div>
 

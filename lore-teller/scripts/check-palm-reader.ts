@@ -160,7 +160,7 @@ asciiText(W - pageLabel.length * 6, 0, pageLabel, false);
 // Footer.
 fillBand(bodyBottom, header.footerRows + header.progressRows, true);
 asciiText(2, bodyBottom, 'PREV', false);
-asciiText(74, bodyBottom, 'MENU', false);
+asciiText((W - 4 * 6) / 2, bodyBottom, 'MENU', false);
 asciiText(134, bodyBottom, 'NEXT', false);
 
 if (header.progressRows >= 2) {
