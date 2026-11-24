@@ -18,6 +18,7 @@ const fonts = ref<Record<number, GlyphFont | null>>({ 8: null, 12: null });
 const fontsLoading = ref(true);
 const pageIndex = ref(0);
 
+/** Internal render scale; CSS stretches the canvas to the card width. */
 const SCALE = 4;
 
 const pages = computed(() => {
@@ -138,7 +139,7 @@ onMounted(async () => {
 
     <canvas
       ref="canvas"
-      class="pixelated mx-auto block h-auto w-full max-w-[640px] rounded border border-stone-300 bg-white"
+      class="pixelated mx-auto block h-auto w-full rounded border border-stone-300 bg-white"
     ></canvas>
 
     <div class="mt-3 flex items-center justify-between text-sm">
