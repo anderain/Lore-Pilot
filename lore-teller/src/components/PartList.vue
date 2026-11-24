@@ -31,7 +31,7 @@ function downloadAll(parts: PartResult[]) {
   <div class="flex h-full flex-col rounded-xl bg-white p-5 shadow-sm">
     <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
       <h2 class="text-sm font-semibold uppercase tracking-wide text-stone-500">
-        分卷（{{ parts.length }} 个，共 {{ totalPages }} 页）
+        卷（{{ parts.length }} 个，共 {{ totalPages }} 页）
       </h2>
       <button
         v-if="parts.length > 1"
@@ -46,6 +46,9 @@ function downloadAll(parts: PartResult[]) {
       <li v-for="part in parts" :key="part.fileName" class="py-2.5">
         <div class="font-mono text-sm text-stone-900">{{ part.fileName }}</div>
         <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
+          <span class="rounded bg-stone-100 px-1.5 py-0.5 font-medium text-stone-700">
+            {{ part.partIndex + 1 }}/{{ part.partCount }} 卷
+          </span>
           <span>第 {{ part.firstPage }}–{{ part.firstPage + part.pageCount - 1 }} 页</span>
           <span>{{ (part.size / 1024).toFixed(1) }} KB</span>
           <span v-if="part.replaced.length" class="text-amber-600">

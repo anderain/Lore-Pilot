@@ -1,9 +1,13 @@
 /*
  * ReaderForm.h
  *
- * Full-screen page reader for LPBK book databases.
+ * Full-screen page reader for one LPBK volume.
  *
- * The layout matches lore-teller/src/lib/render.ts:
+ * A volume is a standalone file: page turning stops at its first and last
+ * page. The header's firstPage/totalPages are still used for the global page
+ * number and the progress bar, so the reader knows where it is in the book.
+ *
+ * Layout matches lore-teller/src/lib/render.ts:
  *
  *   y 0..7      black band, white 6x8 ASCII: displayName + "N/T"
  *   y 8..149    white body, glyph font, vertically centred
@@ -17,9 +21,10 @@
 
 #include <PalmOS.h>
 
-/* Remember which book to open, then FrmGotoForm(ReaderForm). Loads the first
- * page immediately; returns false if the first part is missing. */
-Boolean ReaderFormRequest(const Char *displayName, UInt16 cell);
+/* Open volume `dbName` and load its first page. Called from the bookshelf
+ * before switching forms, so no form transition happens inside an event
+ * handler. Returns false if the database could not be opened. */
+Boolean ReaderFormRequest(const Char *dbName, UInt16 cell);
 
 Boolean ReaderFormHandleEvent(EventType *eventP);
 

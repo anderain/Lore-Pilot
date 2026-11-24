@@ -1,7 +1,8 @@
 /*
  * ReaderForm.c
  *
- * Full-screen page reader. Layout mirrors lore-teller/src/lib/render.ts.
+ * Full-screen page reader for a single LPBK volume. Layout mirrors
+ * lore-teller/src/lib/render.ts.
  *
  *   y 0..7      black band, white 6x8 ASCII: displayName + "N/T"
  *   y 8..149    white body, glyph font, vertically centred
@@ -12,6 +13,9 @@
  * Files written by older lore-teller builds have progressRows == 0: the body
  * then runs 8..151 and the footer sits at 152..159, with no progress bar.
  *
+ * Volumes are standalone: turning past the last page or before the first page
+ * does nothing, so a 1 MB device only ever needs the volume being read.
+ *
  * Only Palm OS 1.0/2.x calls are used (WinDrawLine, WinEraseLine,
  * WinEraseRectangle, Data Manager 1.0).
  */
@@ -20,7 +24,6 @@
 
 #include "ReaderForm.h"
 #include "TextDb.h"
-#include "BookList.h"
 #include "GlyphFont.h"
 #include "UiFont.h"
 #include "LorePilotReader_Rsc.h"
@@ -44,7 +47,6 @@ static TextDbPage gReaderPage;
 static GlyphFont  gReaderFont;
 static Boolean    gReaderFontReady = false;
 
-static Char       gReaderName[17];
 static UInt16     gReaderCell = 8;
 static UInt16     gReaderPageIndex = 0;
 static Boolean    gReaderRequested = false;
@@ -294,83 +296,6 @@ static void ReaderDrawAll(void)
 
 static void ReaderFormClose(void);
 
-/* Open part `partNumber` (1-based) and show `pageIndex`. The switch only
- * commits when the database opens, so a missing part leaves the reader on the
- * page it was showing. */
-static Boolean ReaderLoadPart(UInt16 partNumber, UInt16 pageIndex)
-{
-    Char      dbName[32];
-    TextDb    next;
-    Boolean   ok;
-    UInt16    page;
-
-    dbName[0] = '\0';
-    BookListPartName(gReaderName, partNumber, dbName, sizeof(dbName));
-
-    if (!TextDbOpen(&next, dbName)) {
-        return false;
-    }
-
-    if (pageIndex >= next.header.pageCount) {
-        page = (UInt16)(next.header.pageCount - 1);
-    } else {
-        page = pageIndex;
-    }
-
-    ok = TextDbReadPage(&next, page, &gReaderPage);
-    if (!ok) {
-        MemSet(&gReaderPage, sizeof(gReaderPage), 0);
-    }
-
-    if (gReaderOpen) {
-        TextDbClose(&gReaderDb);
-    }
-    gReaderDb = next;
-    gReaderOpen = true;
-    gReaderPageIndex = page;
-    return true;
-}
-
-static Boolean ReaderNextPage(void)
-{
-    if (!gReaderOpen) return false;
-
-    if ((UInt32)(gReaderPageIndex + 1) < gReaderDb.header.pageCount) {
-        gReaderPageIndex++;
-        if (!TextDbReadPage(&gReaderDb, gReaderPageIndex, &gReaderPage)) {
-            MemSet(&gReaderPage, sizeof(gReaderPage), 0);
-        }
-        return true;
-    }
-
-    if ((UInt16)(gReaderDb.header.partIndex + 1) < gReaderDb.header.partCount) {
-        return ReaderLoadPart((UInt16)(gReaderDb.header.partIndex + 2), 0);
-    }
-    return false;
-}
-
-static Boolean ReaderPrevPage(void)
-{
-    if (!gReaderOpen) return false;
-
-    if (gReaderPageIndex > 0) {
-        gReaderPageIndex--;
-        if (!TextDbReadPage(&gReaderDb, gReaderPageIndex, &gReaderPage)) {
-            MemSet(&gReaderPage, sizeof(gReaderPage), 0);
-        }
-        return true;
-    }
-
-    if (gReaderDb.header.partIndex > 0) {
-        UInt16 prevPart = gReaderDb.header.partIndex;   /* 1-based number */
-
-        /* Open the previous part at its last page. ReaderLoadPart clamps the
-         * index to the page count, so pass a huge page number. */
-        return ReaderLoadPart(prevPart, 0xFFFF);
-    }
-    return false;
-}
-
 static void ReaderOpenFont(void)
 {
     if (gReaderFontReady) {
@@ -381,36 +306,66 @@ static void ReaderOpenFont(void)
     gReaderFontReady = GlyphFontFind(&gReaderFont, (UInt8)gReaderCell);
 }
 
+static Boolean ReaderLoadPage(UInt16 index)
+{
+    if (!gReaderOpen) return false;
+    if ((UInt32)index >= gReaderDb.header.pageCount) return false;
+
+    gReaderPageIndex = index;
+    if (!TextDbReadPage(&gReaderDb, index, &gReaderPage)) {
+        MemSet(&gReaderPage, sizeof(gReaderPage), 0);
+    }
+    return true;
+}
+
+/* Page turning stops at the volume boundaries: a volume is standalone. */
+static Boolean ReaderNextPage(void)
+{
+    if (!gReaderOpen) return false;
+    if ((UInt32)(gReaderPageIndex + 1) >= gReaderDb.header.pageCount) {
+        return false;
+    }
+    return ReaderLoadPage((UInt16)(gReaderPageIndex + 1));
+}
+
+static Boolean ReaderPrevPage(void)
+{
+    if (!gReaderOpen) return false;
+    if (gReaderPageIndex == 0) return false;
+    return ReaderLoadPage((UInt16)(gReaderPageIndex - 1));
+}
+
 /*------------------------------------------------------------------ public*/
 
-/* Store the book to open and load the first page. Called from the bookshelf
- * before switching forms, so no form transition happens inside an event
- * handler. Returns false if the first part could not be opened. */
-Boolean ReaderFormRequest(const Char *displayName, UInt16 cell)
+Boolean ReaderFormRequest(const Char *dbName, UInt16 cell)
 {
-    UInt16 i = 0;
+    TextDb next;
 
     gReaderRequested = false;
-    gReaderName[0] = '\0';
 
-    if (displayName == 0) return false;
+    if (dbName == 0 || dbName[0] == '\0') return false;
 
-    while (i < 16 && displayName[i] != '\0') {
-        gReaderName[i] = displayName[i];
-        i++;
-    }
-    gReaderName[i] = '\0';
-
-    gReaderCell = (UInt16)((cell == 12) ? 12 : 8);
-
-    if (!ReaderLoadPart(1, 0)) {
-        /* Drop any book left open by an earlier session. */
+    if (!TextDbOpen(&next, dbName)) {
         ReaderFormClose();
         return false;
     }
 
-    /* Trust the cell size recorded in the database header. */
+    if (gReaderOpen) {
+        TextDbClose(&gReaderDb);
+    }
+    gReaderDb = next;
+    gReaderOpen = true;
+    gReaderPageIndex = 0;
+    if (!TextDbReadPage(&gReaderDb, 0, &gReaderPage)) {
+        MemSet(&gReaderPage, sizeof(gReaderPage), 0);
+    }
+
+    /* Trust the cell size recorded in the database header; `cell` is only a
+     * hint so the font opens even if the header is odd. */
     gReaderCell = gReaderDb.header.cell;
+    if (gReaderCell != 8 && gReaderCell != 12) {
+        gReaderCell = (UInt16)((cell == 12) ? 12 : 8);
+    }
     ReaderOpenFont();
 
     gReaderRequested = true;

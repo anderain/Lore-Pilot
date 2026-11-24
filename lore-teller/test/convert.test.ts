@@ -136,7 +136,7 @@ describe('conversion', () => {
     const result = convertText(encode(qianziwen, 'utf-8'), {
       displayName: 'QZW',
       cell: 8,
-      partLimit: 64 * 1024,
+      pagesPerPart: 100,
       encoding: 'utf-8',
     });
     expect(result.parts).toHaveLength(1);
@@ -167,7 +167,7 @@ describe('conversion', () => {
     const result = convertText(encode('第一段\n\n第二段', 'utf-8'), {
       displayName: 'T',
       cell: 8,
-      partLimit: 64 * 1024,
+      pagesPerPart: 100,
       encoding: 'utf-8',
     });
     const pd = readPdb(result.parts[0].bytes);
@@ -179,7 +179,7 @@ describe('conversion', () => {
     const result = convertText(encode('Hello, 2026!', 'utf-8'), {
       displayName: 'ASCII',
       cell: 8,
-      partLimit: 64 * 1024,
+      pagesPerPart: 100,
       encoding: 'utf-8',
     });
     const pd = readPdb(result.parts[0].bytes);
@@ -190,7 +190,7 @@ describe('conversion', () => {
     const result = convertText(encode('天🧪', 'utf-8'), {
       displayName: 'MISS',
       cell: 8,
-      partLimit: 64 * 1024,
+      pagesPerPart: 100,
       encoding: 'utf-8',
     });
     expect(result.replaced).toContain('🧪');
@@ -199,12 +199,12 @@ describe('conversion', () => {
     expect(pd.pages[0].lines[0]).toBe('天？');
   });
 
-  it('splits into parts at page boundaries and keeps page numbers global', () => {
+  it('splits into volumes at page boundaries and keeps page numbers global', () => {
     const many = Array.from({ length: 400 }, (_, i) => `第${i + 1}段内容。`).join('\n');
     const result = convertText(encode(many, 'utf-8'), {
       displayName: 'SPLIT',
       cell: 8,
-      partLimit: 2 * 1024,
+      pagesPerPart: 3,
       encoding: 'utf-8',
     });
     expect(result.parts.length).toBeGreaterThan(1);
@@ -218,22 +218,38 @@ describe('conversion', () => {
       expect(pd.firstPage).toBe(expectedFirst);
       expect(pd.pageCount).toBe(part.pageCount);
       expect(pd.totalPages).toBe(result.totalPages);
-      expect(part.size).toBeLessThanOrEqual(2 * 1024);
+      // A volume holds exactly pagesPerPart pages, except the last one.
+      const expectedPages = Math.min(3, result.totalPages - (expectedFirst - 1));
+      expect(part.pageCount).toBe(expectedPages);
       expectedFirst += part.pageCount;
     }
     expect(expectedFirst - 1).toBe(result.totalPages);
   });
 
-  it('refuses more than 99 parts', () => {
+  it('refuses more than 99 volumes', () => {
     const many = Array.from({ length: 4000 }, (_, i) => `第${i + 1}段。`).join('\n');
     expect(() =>
       convertText(encode(many, 'utf-8'), {
         displayName: 'TOOMANY',
         cell: 8,
-        partLimit: 160,
+        pagesPerPart: 1,
         encoding: 'utf-8',
       }),
     ).toThrow(/99/);
+  });
+
+  it('keeps every volume to pagesPerPart pages', () => {
+    const many = Array.from({ length: 200 }, () => '字'.repeat(20)).join('\n');
+    const result = convertText(encode(many, 'utf-8'), {
+      displayName: 'BIG',
+      cell: 8,
+      pagesPerPart: 2,
+      encoding: 'utf-8',
+    });
+    expect(result.parts.length).toBeGreaterThan(1);
+    for (const part of result.parts) {
+      expect(part.pageCount).toBeLessThanOrEqual(2);
+    }
   });
 
   it('uses 13 chars per line and 11 lines per page at 12px', () => {
@@ -241,7 +257,7 @@ describe('conversion', () => {
     const result = convertText(encode(qianziwen, 'gbk'), {
       displayName: 'Q12',
       cell: 12,
-      partLimit: 64 * 1024,
+      pagesPerPart: 100,
       encoding: 'gbk',
     });
     const pd = readPdb(result.parts[0].bytes);
@@ -258,7 +274,7 @@ describe('conversion', () => {
     const result = convertText(encode(qianziwen, 'gbk'), {
       displayName: 'GBK',
       cell: 8,
-      partLimit: 64 * 1024,
+      pagesPerPart: 100,
       encoding: 'gbk',
     });
     const pd = readPdb(result.parts[0].bytes);

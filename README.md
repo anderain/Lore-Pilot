@@ -76,8 +76,9 @@ node font-packer/src/pack-gb2312.mjs --level full  --cell 12
 主界面标题为 **Bookshelf**，上下两块：
 
 - **Books** —— 扫描 `LPBK`/`LPRD` 书籍数据库（`lore-teller` 生成的
-  `LPB_<NAME>_<NN>`），同一本书的分卷合并成一行，行尾显示全书页数与分卷数。
-  `Read` 打开选中的书，`Del` 删除该书的**所有分卷**（带确认框）。
+  `LPB_<NAME>_<NN>`），**每一卷占一行**：`BOOKA  2/7  101-200`，行内显示卷号、
+  本卷全局页范围。`Read` 只打开选中的这一卷，`Del` 也只删除这一卷，不需要同一本
+  书的其他卷在场。
 - **Fonts** —— 扫描 `GLYF`/`LPRD` 字体数据库，显示名称、字号与体积
   （如 `LPF12F 12x12 192K`），`Del` 删除选中的字体。
 
@@ -92,8 +93,9 @@ y 159       进度条填充（长度 = 160 × 页码 / 总页数）
 ```
 
 底部 148..159 的触控区横向三等分：左侧上一页、中间回书架、右侧下一页；
-设备上/下硬件键同样是上一页/下一页。翻到本卷末页会自动接上 `_02`、
-`_03`…… 分卷，页脚页码跨卷连续。
+设备上/下硬件键同样是上一页/下一页。**翻页只在本卷内进行**：到卷首/卷尾就停住，
+不会去打开其他卷。页脚的页码与进度条仍按全书计算（如 `201/300`），所以读者知道
+自己在整本书的什么位置。
 
 所有测试入口在菜单里：
 
@@ -123,7 +125,7 @@ reader/
   Rsc/                    PilRC 资源、图标位图、生成的资源 ID 头
   Src/                    应用源码、字体列表与生成的字模头
   LorePilotReader.mcp     CodeWarrior 工程
-lore-teller/              Vue 3 网页：TXT → 分卷书页 PDB
+lore-teller/              Vue 3 网页：TXT → 卷书页 PDB
   src/lib/                解码、GB2312、断行、分页、PDB 写入、渲染
   docs/text-pdb.md        LPBK 格式（Palm 端实现依据）
   public/fonts/           预览字库（不入库，见 lore-teller/README）
@@ -131,9 +133,11 @@ lore-teller/              Vue 3 网页：TXT → 分卷书页 PDB
 
 ## 书页 PDB（lore-teller）
 
-`lore-teller` 把 TXT 排版成 160×160 书页，输出 `LPB_<NAME>_<NN>.pdb`
-（type `LPBK`，creator `LPRD`）。每页一条记录，行偏移表在记录内，翻页即
-记录跳转；分卷头带 `firstPage / totalPages`，所以全局页码连续。
+`lore-teller` 把 TXT 排版成 160×160 书页，按每卷固定页数输出
+`LPB_<NAME>_<NN>.pdb`（type `LPBK`，creator `LPRD`）。每页一条记录，行偏移表在
+记录内，翻页即记录跳转；卷头带 `partIndex / partCount / firstPage / totalPages`，
+所以页码与进度条按全书连续。**每一卷都是独立文件**：可以只装一卷、只读一卷，
+1MB 的机器上不需要同时放整本书。
 
 ```powershell
 cd lore-teller

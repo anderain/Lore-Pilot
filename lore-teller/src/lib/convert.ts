@@ -10,7 +10,8 @@ import type { TextEncoding } from './decode';
 export interface ConvertOptions {
   displayName: string;
   cell: 8 | 12;
-  partLimit: number;
+  /** Pages per volume. */
+  pagesPerPart: number;
   encoding: TextEncoding;
 }
 
@@ -67,7 +68,7 @@ export function convertText(buffer: ArrayBuffer, options: ConvertOptions): Conve
     cell: options.cell,
     charsPerLine,
     linesPerPage,
-    partLimit: options.partLimit,
+    pagesPerPart: options.pagesPerPart,
   });
 
   const charCount = [...normalised.replace(/\n/g, '')].length;
@@ -80,7 +81,9 @@ export function convertText(buffer: ArrayBuffer, options: ConvertOptions): Conve
     );
   }
   if (result.parts.length > 1) {
-    warnings.push(`已按 ${options.partLimit / 1024}K 拆分为 ${result.parts.length} 个分卷。`);
+    warnings.push(
+      `已按每卷 ${options.pagesPerPart} 页拆分为 ${result.parts.length} 卷，每卷可单独安装和阅读。`,
+    );
   }
 
   return {

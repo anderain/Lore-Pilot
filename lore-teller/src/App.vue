@@ -13,7 +13,7 @@ const buffer = ref<ArrayBuffer | null>(null);
 const options = ref<Options>({
   displayName: 'BOOK',
   cell: 8,
-  partLimit: 64 * 1024,
+  pagesPerPart: 100,
   encoding: 'utf-8',
 });
 const result = ref<ConvertResult | null>(null);
@@ -59,7 +59,7 @@ async function generate() {
     const converted = convertText(buffer.value, {
       displayName: options.value.displayName,
       cell: options.value.cell,
-      partLimit: options.value.partLimit,
+      pagesPerPart: options.value.pagesPerPart,
       encoding: options.value.encoding,
     });
     result.value = converted;
@@ -79,7 +79,7 @@ async function generate() {
     <header>
       <h1 class="text-2xl font-semibold tracking-tight">lore-teller</h1>
       <p class="mt-1 text-sm text-stone-600">
-        把 TXT 排版成 Palm OS 160×160 书页，打包为可分卷的 PDB。
+        把 TXT 排版成 Palm OS 160×160 书页，切成可单独安装的卷 PDB。
       </p>
     </header>
 
@@ -102,7 +102,7 @@ async function generate() {
       <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
       <p v-else-if="result" class="text-sm text-stone-600">
         {{ result.charCount }} 字 · {{ result.lineCount }} 行 · {{ result.totalPages }} 页 ·
-        {{ result.parts.length }} 个分卷 ·
+        {{ result.parts.length }} 卷 ·
         总 {{ (result.totalBytes / 1024).toFixed(1) }} KB
       </p>
     </div>

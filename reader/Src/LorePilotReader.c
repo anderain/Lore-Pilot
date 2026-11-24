@@ -86,8 +86,8 @@ static void MainFormReadSelected(void)
 
     if (book == 0) return;
 
-    if (!ReaderFormRequest(book->displayName, book->cell)) {
-        FrmAlert(OpenBookFailedAlert);
+    if (!ReaderFormRequest(book->dbName, book->cell)) {
+        FrmCustomAlert(OpenBookFailedAlert, book->dbName, "", "");
         return;
     }
     FrmGotoForm(ReaderForm);

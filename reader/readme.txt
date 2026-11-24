@@ -59,12 +59,11 @@ Source files:
                     supports 8x8 (8 bytes/glyph) and 12x12 (24 bytes/glyph)
   GbTest.c/.h       Qianziwen reader test form (32 pages), cell-size aware
   FontList.c/.h     installed font list, row formatting and delete button
-  TextDb.c/.h       reader for LPBK/LPRD paginated books (64-byte header,
-                    one page per record, GB2312 double-byte body)
-  BookList.c/.h     bookshelf model: groups LPB_<NAME>_<NN> parts into one
-                    row, deletes every part of a book
-  ReaderForm.c/.h   full-screen page reader (no form objects; everything is
-                    drawn), page turning across part boundaries
+  TextDb.c/.h       reader for LPBK/LPRD page volumes (64-byte header, one
+                    page per record, GB2312 double-byte body)
+  BookList.c/.h     bookshelf model: one row per volume, delete one volume
+  ReaderForm.c/.h   full-screen page reader for one volume (no form objects;
+                    everything is drawn), page turning stops at the ends
   UiFont.c/.h       6x8 FontHybird ASCII drawing, normal and inverse
   GlyphAtlas.h      generated: 21 glyphs + phrase answer key
   GbSamples.h       generated: 10 sample glyphs (8x8) for byte-for-byte check
@@ -78,10 +77,11 @@ Add TextDb.c, BookList.c, ReaderForm.c and UiFont.c (plus their .h files) to
 the CodeWarrior project.  `reader/build.ps1` builds the same sources from the
 command line without touching the .mcp.
 
-Main form ("Bookshelf"): a "Books" list of installed LPBK books with Read/Del
-buttons, and a "Fonts" list of installed GLYF/LPRD fonts with its own Del
-button.  Tests live in the menu: Test > Glyph 8x8 / GB2312 8x8 / GB2312 12x12;
-Options > Refresh Lists / About.
+Main form ("Bookshelf"): a "Books (volumes)" list where every LPBK volume is
+its own row, with Read/Del buttons, and a "Fonts" list of installed GLYF/LPRD
+fonts with its own Del button.  A volume is standalone: Read opens just that
+file and Del deletes just that file.  Tests live in the menu: Test > Glyph 8x8
+/ GB2312 8x8 / GB2312 12x12; Options > Refresh Lists / About.
 
 Reader layout (matches lore-teller/src/lib/render.ts):
 
@@ -93,7 +93,8 @@ Reader layout (matches lore-teller/src/lib/render.ts):
 
 The bottom 12 rows are split into three equal touch columns: left = previous
 page, middle = back to the bookshelf, right = next page.  The hardware
-up/down keys also turn pages.
+up/down keys also turn pages.  Page turning stops at the volume boundaries;
+the page number and progress bar are still global (firstPage / totalPages).
 
 Database names (file name == Palm database name):
 

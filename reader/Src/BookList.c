@@ -1,10 +1,10 @@
 /*
  * BookList.c
  *
- * Enumerates LPBK/LPRD databases and folds the parts of one book into a
- * single list row:
+ * Every LPBK/LPRD volume is one row. Volumes are never merged into a book:
+ * the split exists so a 1 MB Palm only has to hold the volume being read.
  *
- *   BOOKA        245p x3
+ *   BOOKA  1/7  1-100
  *
  * The Palm list font is 6 px wide, so keep rows at 26 characters or less.
  */
@@ -22,39 +22,7 @@ static Char     gBookLabels[kBookListMax][kBookListWidth + 1];
 static Char    *gBookLabelPtr[kBookListMax];
 static Int16    gBookCount = 0;
 static Int16    gBookSelected = -1;
-static Char     gBookSelectedName[kBookNameLen];
-
-/* Build the database name for one part: LPB_<NAME>_<NN>. */
-void BookListPartName(const Char *displayName, UInt16 partNumber,
-                      Char *out, UInt16 max)
-{
-    Char digits[3];
-    UInt16 i = 0;
-    UInt16 len = 0;
-    UInt16 value = partNumber;
-
-    if (max < 5) return;
-    if (value < 1) value = 1;
-    if (value > 99) value = 99;
-
-    out[len++] = 'L';
-    out[len++] = 'P';
-    out[len++] = 'B';
-    out[len++] = '_';
-
-    for (i = 0; displayName[i] != '\0' && len < (UInt16)(max - 4); i++) {
-        out[len++] = displayName[i];
-    }
-
-    out[len++] = '_';
-    digits[0] = (Char)('0' + (value / 10) % 10);
-    digits[1] = (Char)('0' + value % 10);
-    if (value >= 10) {
-        out[len++] = digits[0];
-    }
-    out[len++] = digits[1];
-    out[len] = '\0';
-}
+static Char     gBookSelectedName[kBookDbNameLen];
 
 static void BookListAppendStr(Char *dst, const Char *src, UInt16 max)
 {
@@ -74,34 +42,38 @@ static void BookListAppendInt(Char *dst, UInt32 value, UInt16 max)
     BookListAppendStr(dst, tmp, max);
 }
 
-/* "BOOKA        245p x3", truncated to kBookListWidth. */
+/* "BOOKA  1/7  1-100", truncated to kBookListWidth. */
 static void BookListFormat(Int16 i)
 {
     Char *out = gBookLabels[i];
-    UInt16 len;
+    UInt16 len = 0;
     UInt16 nameLen;
 
     out[0] = '\0';
 
     nameLen = StrLen(gBookInfo[i].displayName);
-    if (nameLen > 12) nameLen = 12;
-    len = 0;
+    if (nameLen > 10) nameLen = 10;
     while (len < nameLen) {
         out[len] = gBookInfo[i].displayName[len];
         len++;
     }
     out[len] = '\0';
-    while (len < 12 && len < kBookListWidth) {
+    while (len < 10 && len < kBookListWidth) {
         out[len++] = ' ';
         out[len] = '\0';
     }
 
-    BookListAppendInt(out, gBookInfo[i].totalPages, kBookListWidth);
-    BookListAppendStr(out, "p", kBookListWidth);
-    if (gBookInfo[i].partCount > 1) {
-        BookListAppendStr(out, " x", kBookListWidth);
-        BookListAppendInt(out, gBookInfo[i].partCount, kBookListWidth);
-    }
+    BookListAppendStr(out, "  ", kBookListWidth);
+    BookListAppendInt(out, (UInt32)(gBookInfo[i].partIndex + 1), kBookListWidth);
+    BookListAppendStr(out, "/", kBookListWidth);
+    BookListAppendInt(out, gBookInfo[i].partCount, kBookListWidth);
+
+    BookListAppendStr(out, " ", kBookListWidth);
+    BookListAppendInt(out, gBookInfo[i].firstPage, kBookListWidth);
+    BookListAppendStr(out, "-", kBookListWidth);
+    BookListAppendInt(out,
+                      gBookInfo[i].firstPage + gBookInfo[i].pageCount - 1,
+                      kBookListWidth);
 }
 
 static ListType* BookListGet(FormType *formP)
@@ -112,20 +84,15 @@ static ListType* BookListGet(FormType *formP)
     return (ListType *)FrmGetObjectPtr(formP, index);
 }
 
-/* Find an existing group for this display name, or -1. */
-static Int16 BookListFindGroup(const Char *displayName)
+/* Sort by book name, then volume number so volumes stay in reading order. */
+static Int16 BookListCompare(const BookInfo *a, const BookInfo *b)
 {
-    Int16 i;
+    Int16 cmp = StrCompare(a->displayName, b->displayName);
 
-    for (i = 0; i < gBookCount; i++) {
-        if (StrCompare(gBookInfo[i].displayName, displayName) == 0) {
-            return i;
-        }
-    }
-    return -1;
+    if (cmp != 0) return cmp;
+    return (Int16)((Int16)a->partIndex - (Int16)b->partIndex);
 }
 
-/* Sort groups by display name so the list order is stable. */
 static void BookListSort(void)
 {
     Int16 i;
@@ -134,7 +101,7 @@ static void BookListSort(void)
         BookInfo tmp = gBookInfo[i];
         Int16 j = (Int16)(i - 1);
 
-        while (j >= 0 && StrCompare(gBookInfo[j].displayName, tmp.displayName) > 0) {
+        while (j >= 0 && BookListCompare(&gBookInfo[j], &tmp) > 0) {
             gBookInfo[j + 1] = gBookInfo[j];
             j--;
         }
@@ -148,8 +115,8 @@ void BookListRefresh(FormType *formP)
     UInt16 total;
     UInt16 i;
     UInt16 buttonIndex;
-    ControlType *readButton;
-    Int16 keep;
+    ControlType *control;
+    Int16 keep = -1;
 
     list = BookListGet(formP);
     if (list == 0) return;
@@ -163,10 +130,10 @@ void BookListRefresh(FormType *formP)
         UInt32 type = 0;
         UInt32 creator = 0;
         TextDbHeader header;
-        Int16 group;
         UInt32 records = 0;
         UInt32 size = 0;
         UInt32 dataBytes = 0;
+        BookInfo *info;
 
         if (dbID == 0) continue;
         MemSet(name, sizeof(name), 0);
@@ -181,27 +148,31 @@ void BookListRefresh(FormType *formP)
             size = 0;
         }
 
-        group = BookListFindGroup(header.displayName);
-        if (group < 0) {
-            group = gBookCount;
-            gBookInfo[group].displayName[0] = '\0';
-            BookListAppendStr(gBookInfo[group].displayName, header.displayName,
-                              kBookNameLen);
-            gBookInfo[group].cell = header.cell;
-            gBookInfo[group].partCount = header.partCount;
-            gBookInfo[group].progressRows = header.progressRows;
-            gBookInfo[group].totalPages = header.totalPages;
-            gBookInfo[group].sizeBytes = 0;
-            gBookCount++;
-        }
-        gBookInfo[group].sizeBytes += size;
+        info = &gBookInfo[gBookCount];
+        MemSet(info, sizeof(*info), 0);
+        BookListAppendStr(info->dbName, name, kBookDbNameLen);
+        BookListAppendStr(info->displayName, header.displayName, kBookNameLen);
+        info->cell = header.cell;
+        info->partIndex = header.partIndex;
+        info->partCount = header.partCount;
+        info->firstPage = header.firstPage;
+        info->pageCount = header.pageCount;
+        info->totalPages = header.totalPages;
+        info->sizeBytes = size;
+        gBookCount++;
     }
 
     BookListSort();
 
-    /* Keep the selection across a refresh by name, not by row index: sorting
-     * may reorder the rows when the installed set changes. */
-    keep = BookListFindGroup(gBookSelectedName);
+    /* Keep the selection across a refresh by database name, not by row index. */
+    keep = -1;
+    for (i = 0; i < (UInt16)gBookCount; i++) {
+        if (gBookSelectedName[0] != '\0' &&
+            StrCompare(gBookInfo[i].dbName, gBookSelectedName) == 0) {
+            keep = (Int16)i;
+            break;
+        }
+    }
     if (keep < 0 && gBookCount > 0) keep = 0;
 
     for (i = 0; i < (UInt16)gBookCount; i++) {
@@ -220,21 +191,20 @@ void BookListRefresh(FormType *formP)
         if (keep >= gBookCount) keep = (Int16)(gBookCount - 1);
         LstSetSelection(list, keep);
         gBookSelected = keep;
-        gBookSelectedName[0] = '\0';
-        BookListAppendStr(gBookSelectedName, gBookInfo[keep].displayName,
-                          kBookNameLen);
+        BookListAppendStr(gBookSelectedName, gBookInfo[keep].dbName,
+                          kBookDbNameLen);
     }
     LstDrawList(list);
 
     buttonIndex = FrmGetObjectIndex(formP, MainReadButton);
-    readButton = (ControlType *)FrmGetObjectPtr(formP, buttonIndex);
-    if (readButton != 0) {
-        CtlSetEnabled(readButton, (Boolean)(gBookCount > 0));
+    control = (ControlType *)FrmGetObjectPtr(formP, buttonIndex);
+    if (control != 0) {
+        CtlSetEnabled(control, (Boolean)(gBookCount > 0));
     }
     buttonIndex = FrmGetObjectIndex(formP, MainDeleteBookButton);
-    readButton = (ControlType *)FrmGetObjectPtr(formP, buttonIndex);
-    if (readButton != 0) {
-        CtlSetEnabled(readButton, (Boolean)(gBookCount > 0));
+    control = (ControlType *)FrmGetObjectPtr(formP, buttonIndex);
+    if (control != 0) {
+        CtlSetEnabled(control, (Boolean)(gBookCount > 0));
     }
 }
 
@@ -256,8 +226,8 @@ void BookListSelect(FormType *formP, Int16 itemNum)
     gBookSelected = itemNum;
     gBookSelectedName[0] = '\0';
     if (itemNum >= 0 && itemNum < gBookCount) {
-        BookListAppendStr(gBookSelectedName, gBookInfo[itemNum].displayName,
-                          kBookNameLen);
+        BookListAppendStr(gBookSelectedName, gBookInfo[itemNum].dbName,
+                          kBookDbNameLen);
     }
     LstSetSelection(list, itemNum);
     LstDrawList(list);
@@ -284,36 +254,26 @@ Boolean BookListDeleteSelected(FormType *formP)
 {
     const BookInfo *book;
     Char name[32];
-    UInt16 part;
-    UInt16 deleted = 0;
+    LocalID dbID;
     UInt16 choice;
 
     book = BookListGetSelected();
     if (book == 0) return false;
 
     MemSet(name, sizeof(name), 0);
-    BookListAppendStr(name, book->displayName, sizeof(name));
+    BookListAppendStr(name, book->dbName, sizeof(name));
 
     choice = FrmCustomAlert(DeleteBookAlert, name, "", "");
     if (choice != 0) return false;         /* Cancel (button index 1) */
 
-    for (part = 1; part <= book->partCount && part < 100; part++) {
-        Char dbName[32];
-        LocalID dbID;
-
-        BookListPartName(book->displayName, part, dbName, sizeof(dbName));
-        dbID = DmFindDatabase(0, dbName);
-        if (dbID == 0) continue;
-        if (DmDeleteDatabase(0, dbID) == errNone) {
-            deleted++;
-        }
-    }
-
-    if (deleted == 0) {
+    dbID = DmFindDatabase(0, name);
+    if (dbID == 0 || DmDeleteDatabase(0, dbID) != errNone) {
         FrmCustomAlert(DeleteBookFailedAlert, name, "", "");
         return false;
     }
 
+    /* The selection is gone; let refresh pick the first remaining row. */
+    gBookSelectedName[0] = '\0';
     BookListRefresh(formP);
     return true;
 }

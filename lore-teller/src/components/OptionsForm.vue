@@ -5,7 +5,7 @@ import type { TextEncoding } from '../lib/decode';
 export interface Options {
   displayName: string;
   cell: 8 | 12;
-  partLimit: number;
+  pagesPerPart: number;
   encoding: TextEncoding;
 }
 
@@ -32,9 +32,9 @@ function onNameInput(event: Event) {
 }
 
 const limits = [
-  { label: '64K', value: 64 * 1024 },
-  { label: '128K', value: 128 * 1024 },
-  { label: '256K', value: 256 * 1024 },
+  { label: '50 页', value: 50 },
+  { label: '100 页', value: 100 },
+  { label: '200 页', value: 200 },
 ];
 
 const cells = [
@@ -78,20 +78,21 @@ const cells = [
       </label>
 
       <div>
-        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">单文件大小</span>
+        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">每卷页数</span>
         <div class="flex gap-2">
           <button
             v-for="limit in limits"
             :key="limit.value"
-            class="flex-1 rounded-lg border px-2 py-2 text-sm"
-            :class="modelValue.partLimit === limit.value
+            class="flex-1 rounded-lg border border-stone-300 px-2 py-2 text-sm"
+            :class="modelValue.pagesPerPart === limit.value
               ? 'border-stone-900 bg-stone-900 text-white'
               : 'border-stone-300 bg-white text-stone-700 hover:border-stone-500'"
-            @click="patch({ partLimit: limit.value })"
+            @click="patch({ pagesPerPart: limit.value })"
           >
             {{ limit.label }}
           </button>
         </div>
+        <span class="mt-1 block text-xs text-stone-400">每卷可单独装进 Palm</span>
       </div>
 
       <div>

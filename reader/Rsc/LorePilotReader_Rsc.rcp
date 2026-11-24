@@ -27,7 +27,7 @@ ALERT ID AboutAlert
     INFORMATION
 BEGIN
     TITLE "About"
-    MESSAGE "LorePilot Bookshelf\r\rBooks: LPBK page databases from lore-teller.\rFonts: LPF08B/F (8x8), LPF12B/F (12x12).\r\rTest menu runs the glyph and Qianziwen tests."
+    MESSAGE "LorePilot Bookshelf\r\rBooks: LPBK volumes from lore-teller. Each volume installs and reads on its own.\rFonts: LPF08B/F (8x8), LPF12B/F (12x12).\r\rTest menu runs the glyph and Qianziwen tests."
     BUTTONS "OK"
 END
 
@@ -53,8 +53,8 @@ ALERT ID DeleteBookAlert
     DEFAULTBUTTON 1
     WARNING
 BEGIN
-    TITLE "Delete Book"
-    MESSAGE "^0\r\rDelete every part of this book?"
+    TITLE "Delete Volume"
+    MESSAGE "^0\r\rDelete this volume? Other volumes of the book stay installed."
     BUTTONS "Delete" "Cancel"
 END
 
@@ -72,7 +72,7 @@ ALERT ID OpenBookFailedAlert
     ERROR
 BEGIN
     TITLE "Open Failed"
-    MESSAGE "A part of this book is missing.\r\rReinstall all LPB_*.pdb files of the book."
+    MESSAGE "Could not open ^0.\r\rThe volume file may be missing or damaged."
     BUTTONS "OK"
 END
 
@@ -101,7 +101,7 @@ FORM ID MainForm AT (0 0 160 160)
 BEGIN
     TITLE "Bookshelf"
 
-    LABEL "Books"           ID MainBooksLabel       AT (2 16)
+    LABEL "Books (volumes)" ID MainBooksLabel       AT (2 16)
     LIST ""                 ID MainBookList         AT (2 27 156 46) VISIBLEITEMS 4
     BUTTON "Read"           ID MainReadButton       AT (2 74 46 13)
     BUTTON "Del"            ID MainDeleteBookButton AT (52 74 30 13)

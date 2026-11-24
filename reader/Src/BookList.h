@@ -1,10 +1,11 @@
 /*
  * BookList.h
  *
- * Bookshelf model: every LPBK/LPRD book database that lore-teller produced.
+ * Bookshelf model: one row per installed LPBK/LPRD volume.
  *
- * A multi-part book is one entry in the list. Parts are never cached; the
- * reader recomputes LPB_<NAME>_<NN> when it turns across a part boundary.
+ * Volumes are standalone files (LPB_<NAME>_<NN>). Each can be installed,
+ * opened and deleted on its own, which is the point on a 1 MB Palm: the reader
+ * never needs the other volumes of the same book.
  */
 
 #ifndef BOOKLIST_H_
@@ -12,36 +13,36 @@
 
 #include <PalmOS.h>
 
-#define kBookListMax      16
+#define kBookListMax      24
 #define kBookNameLen      17
+#define kBookDbNameLen    32
 
 typedef struct BookInfoType {
+    Char   dbName[kBookDbNameLen];
     Char   displayName[kBookNameLen];
     UInt16 cell;
+    UInt16 partIndex;      /* 0-based */
     UInt16 partCount;
-    UInt16 progressRows;
-    UInt32 totalPages;
+    UInt32 firstPage;      /* global page number of this volume's first page */
+    UInt32 pageCount;
+    UInt32 totalPages;     /* pages in the whole book, for the progress bar */
     UInt32 sizeBytes;
 } BookInfo;
 
-/* Build the database name of one part: LPB_<NAME>_<NN>. */
-void    BookListPartName(const Char *displayName, UInt16 partNumber,
-                         Char *out, UInt16 max);
-
-/* Rebuild the book list from installed databases. */
+/* Rebuild the volume list from installed databases. */
 void    BookListRefresh(FormType *formP);
 
-/* Called when the user taps the book list. */
+/* Called when the user taps the list. */
 void    BookListSelect(FormType *formP, Int16 itemNum);
 
 /* Currently selected entry, or -1. */
 Int16   BookListGetSelection(FormType *formP);
 
-/* Selected book, or 0. */
+/* Selected volume, or 0. */
 const BookInfo *BookListGetSelected(void);
 
-/* Delete every part of the selected book after confirmation.
- * Returns true if anything was deleted. */
+/* Delete the selected volume after confirmation.
+ * Returns true if it was deleted. */
 Boolean BookListDeleteSelected(FormType *formP);
 
 #endif /* BOOKLIST_H_ */

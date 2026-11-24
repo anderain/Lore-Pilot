@@ -82,6 +82,10 @@ layout: body 8..151, no progress bar, and 18 / 12 lines per page.
 
 ## Splitting
 
-Parts are filled with whole pages (never split a page). Each part's header
-carries `partIndex`, `partCount`, `firstPage`, `pageCount`, `totalPages`, so
-the reader can display global page numbers across parts.
+Volumes are filled with whole pages (never split a page), `pagesPerPart` at a
+time. Each volume is **standalone**: it can be installed, opened and deleted
+without the other volumes of the book, which is the point on a 1 MB Palm.
+
+A volume's header still carries `partIndex`, `partCount`, `firstPage`,
+`pageCount` and `totalPages`, so the reader can show a global page number and
+global progress even though it only loaded one file.
