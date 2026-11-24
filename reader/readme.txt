@@ -55,11 +55,27 @@ state indicator, no NOSAVEBEHIND.  The other icon bitmaps are kept for a future
 Source files added for the font feasibility test:
 
   GlyphTest.c/.h    8x8 glyph atlas test form
-  GlyphFont.c/.h    paged GB2312 glyph access (3-page LRU + extras table)
-  GbTest.c/.h       Qianziwen reader test form (32 pages)
+  GlyphFont.c/.h    paged GB2312 glyph access (3-page LRU + extras table),
+                    supports 8x8 (8 bytes/glyph) and 12x12 (24 bytes/glyph)
+  GbTest.c/.h       Qianziwen reader test form (32 pages), cell-size aware
+  FontList.c/.h     installed font list, row formatting and delete button
   GlyphAtlas.h      generated: 21 glyphs + phrase answer key
-  GbSamples.h       generated: 10 sample glyphs for byte-for-byte check
+  GbSamples.h       generated: 10 sample glyphs (8x8) for byte-for-byte check
+  GbSamples12.h     generated: 10 sample glyphs (12x12)
   GbText.h          generated: Qianziwen as 1250 GB2312 units
 
-The three generated headers are committed so the project builds without the
+The generated headers are committed so the project builds without the
 Fusion Pixel TTF; regenerate them with font-packer (see ../README.md).
+
+Main form: list of installed GLYF/LPRD font databases plus a "-" delete
+button. Tests moved to the menu: Test > Glyph 8x8 / GB2312 8x8 /
+GB2312 12x12; Options > Refresh List / About.
+
+Database names (file name == Palm database name):
+
+  LPT08A   8x8 atlas test data (layout 0; not listed as a font)
+  LPF08B   8x8 A1-D7    LPF08F   8x8 A1-F7    LPF08H   8x8 B0-D7
+  LPF12B  12x12 A1-D7   LPF12F  12x12 A1-F7   LPF12H  12x12 B0-D7
+
+Older builds used LPGlyph8 (still read as a fallback by Glyph Test),
+LPGB2312B/F and LPGB12B/F; they can be deleted from the main list.

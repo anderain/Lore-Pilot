@@ -2,6 +2,8 @@
 #ifndef LOREPILOT_GB_SAMPLES_H
 #define LOREPILOT_GB_SAMPLES_H
 
+#define kGbSampleCell            8
+#define kGbSampleBytesPerGlyph   8
 #define kGbSampleCount 10
 
 static const unsigned short kGbSampleCodes[kGbSampleCount] = {

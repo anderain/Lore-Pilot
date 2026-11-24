@@ -218,20 +218,24 @@ export function loadFont(file) {
       .map(dropDuplicatePoints)
       .filter((c) => c.length >= 3);
 
-    const cell = unitsPerEm / cellW;
     if (cellH !== cellW) throw new Error('TTF: non-square cells are not supported yet');
+    const cell = unitsPerEm / cellW;
+    if (!Number.isInteger(cell)) {
+      throw new Error(`TTF: unitsPerEm ${unitsPerEm} is not divisible by cell size ${cellW}`);
+    }
 
-    const rows = [];
+    const rowBytes = Math.ceil(cellW / 8);
+    const rows = Buffer.alloc(rowBytes * cellH);
     for (let r = 0; r < cellH; r++) {
-      let byte = 0;
       for (let c = 0; c < cellW; c++) {
         const x = (c + 0.5) * cell;
         const y = ascent - (r + 0.5) * cell;
-        if (insideEvenOdd(contours, x, y)) byte |= 0x80 >> c;
+        if (insideEvenOdd(contours, x, y)) {
+          rows[r * rowBytes + (c >> 3)] |= 0x80 >> (c & 7);
+        }
       }
-      rows.push(byte);
     }
-    return { gid, rows, advance: advance(gid) };
+    return { gid, rows, rowBytes, advance: advance(gid) };
   }
 
   return {

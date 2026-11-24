@@ -5,12 +5,14 @@
  *
  * PDB layout (version 2, layout 1):
  *   record 0: 48-byte header
- *   record 1..N: page, pageGlyphs * 8 bytes each
+ *   record 1..N: page, pageGlyphs * bytesPerGlyph bytes each
  *   index = (hi - firstRow) * cols + (lo - firstCol)
- *   page  = index / pageGlyphs, offset = (index % pageGlyphs) * 8
+ *   page  = index / pageGlyphs, offset = (index % pageGlyphs) * bytesPerGlyph
+ *
+ * Supported cells: 8x8 (8 bytes/glyph, 2048 per page) and
+ * 12x12 (24 bytes/glyph, 512 per page). Everything else is rejected.
  *
  * Only Dm*, Mem* and WinDrawLine are used, so this runs on Palm OS 2.0.
- * Two page handles are cached; pages are never copied wholesale.
  */
 
 #include <PalmOS.h>
@@ -18,7 +20,7 @@
 #include "GlyphFont.h"
 
 #define kGlyphFontHeaderLen  48
-#define kGlyphFontMaxPages   16
+#define kGlyphFontMaxPages   32
 
 static UInt16 GlyphFontBe16(const UInt8 *p)
 {
@@ -59,6 +61,117 @@ static void GlyphFontDropCache(GlyphFont *font)
     }
 }
 
+static void GlyphFontSetName(GlyphFont *font, const Char *name)
+{
+    UInt16 i;
+
+    for (i = 0; i < 31 && name[i] != '\0'; i++) {
+        font->name[i] = name[i];
+    }
+    font->name[i] = '\0';
+}
+
+/* Read and validate the 48-byte header of an open database. */
+static Boolean GlyphFontReadHeader(const UInt8 *hdr, UInt16 recCount,
+                                   GlyphFontInfo *info)
+{
+    UInt16 cellW, cellH, bytesPerGlyph, pageGlyphs, pages, extraRecord;
+
+    if (hdr[0] != 'L' || hdr[1] != 'P' || hdr[2] != 'G' || hdr[3] != '1') return false;
+    if (GlyphFontBe16(hdr + 4) != 2) return false;          /* version 2 */
+    if (GlyphFontBe16(hdr + 14) != 1) return false;         /* paged layout */
+
+    cellW        = GlyphFontBe16(hdr + 6);
+    cellH        = GlyphFontBe16(hdr + 8);
+    bytesPerGlyph = GlyphFontBe16(hdr + 10);
+    pages        = GlyphFontBe16(hdr + 44);
+    pageGlyphs   = GlyphFontBe16(hdr + 46);
+    extraRecord  = (UInt16)GlyphFontBe32(hdr + 28);
+
+    if (cellW != cellH) return false;
+    if (cellW != 8 && cellW != 12) return false;
+    if (bytesPerGlyph != cellH * ((cellW + 7) / 8)) return false;
+    if (pages < 1 || pages > kGlyphFontMaxPages || pageGlyphs < 1) return false;
+    if (GlyphFontBe16(hdr + 40) < 1 || GlyphFontBe16(hdr + 42) < 1) return false;
+
+    if (extraRecord != 0) {
+        if (extraRecord != (UInt16)(pages + 1)) return false;
+        if (recCount != (UInt16)(pages + 2)) return false;
+    } else if (recCount != (UInt16)(pages + 1)) {
+        return false;
+    }
+
+    if (info != 0) {
+        info->cellW = cellW;
+        info->cellH = cellH;
+        info->glyphCount = GlyphFontBe16(hdr + 12);
+        info->pageCount = pages;
+        info->valid = true;
+    }
+    return true;
+}
+
+/* Read only the header record of a database, without keeping it open. */
+Boolean GlyphFontProbe(const Char *name, GlyphFontInfo *info)
+{
+    UInt8 hdr[kGlyphFontHeaderLen];
+    LocalID dbID;
+    DmOpenRef db;
+    MemHandle h;
+    const UInt8 *p;
+    UInt16 recCount;
+    UInt32 recordCount;
+    UInt32 totalBytes;
+    UInt32 dataBytes;
+
+    if (info == 0) return false;
+    MemSet(info, sizeof(*info), 0);
+
+    dbID = DmFindDatabase(0, name);
+    if (dbID == 0) return false;
+
+    {
+        UInt16 i;
+        for (i = 0; i < 31 && name[i] != '\0'; i++) {
+            info->name[i] = name[i];
+        }
+        info->name[i] = '\0';
+    }
+    info->dbID = dbID;
+
+    recordCount = 0;
+    totalBytes = 0;
+    dataBytes = 0;
+    if (DmDatabaseSize(0, dbID, &recordCount, &totalBytes, &dataBytes) == errNone) {
+        info->sizeBytes = totalBytes;
+    }
+
+    db = DmOpenDatabase(0, dbID, dmModeReadOnly);
+    if (db == 0) return false;
+
+    recCount = DmNumRecords(db);
+    if (recCount < 2) {
+        DmCloseDatabase(db);
+        return false;
+    }
+
+    h = DmQueryRecord(db, 0);
+    if (h == 0 || MemHandleSize(h) < kGlyphFontHeaderLen) {
+        DmCloseDatabase(db);
+        return false;
+    }
+    p = (const UInt8 *)MemHandleLock(h);
+    if (p == 0) {
+        DmCloseDatabase(db);
+        return false;
+    }
+    MemMove(hdr, p, kGlyphFontHeaderLen);
+    MemHandleUnlock(h);
+    DmCloseDatabase(db);
+
+    return GlyphFontReadHeader(hdr, recCount, info);
+}
+
 Boolean GlyphFontOpen(GlyphFont *font, const Char *name)
 {
     UInt8 hdr[kGlyphFontHeaderLen];
@@ -67,6 +180,7 @@ Boolean GlyphFontOpen(GlyphFont *font, const Char *name)
     MemHandle h;
     const UInt8 *p;
     UInt16 recCount;
+    GlyphFontInfo info;
 
     if (font == 0) return false;
     MemSet(font, sizeof(*font), 0);
@@ -97,12 +211,12 @@ Boolean GlyphFontOpen(GlyphFont *font, const Char *name)
     MemMove(hdr, p, kGlyphFontHeaderLen);
     MemHandleUnlock(h);
 
-    if (hdr[0] != 'L' || hdr[1] != 'P' || hdr[2] != 'G' || hdr[3] != '1') {
+    if (!GlyphFontReadHeader(hdr, recCount, &info)) {
         DmCloseDatabase(db);
         return false;
     }
 
-    font->version        = GlyphFontBe16(hdr + 4);
+    font->version        = 2;
     font->cellW          = GlyphFontBe16(hdr + 6);
     font->cellH          = GlyphFontBe16(hdr + 8);
     font->bytesPerGlyph  = GlyphFontBe16(hdr + 10);
@@ -117,38 +231,10 @@ Boolean GlyphFontOpen(GlyphFont *font, const Char *name)
     font->pageGlyphs     = GlyphFontBe16(hdr + 46);
     font->extraRecord    = (UInt16)GlyphFontBe32(hdr + 28);
 
-    if (font->version != 2 ||
-        font->cellW != 8 || font->cellH != 8 ||
-        font->bytesPerGlyph != 8 ||
-        GlyphFontBe16(hdr + 14) != 1) {     /* layout: paged */
-        DmCloseDatabase(db);
-        return false;
-    }
-
-    if (font->pageCount < 1 || font->pageCount > kGlyphFontMaxPages ||
-        font->pageGlyphs < 1 ||
-        font->rows < 1 || font->rows > 94 ||
-        font->cols < 1 || font->cols > 94 ||
-        font->firstCol > font->lastCol || font->firstRow > font->lastRow) {
-        DmCloseDatabase(db);
-        return false;
-    }
-
-    /* Expected records: header + pages, plus the optional extras record. */
-    if (font->extraRecord != 0) {
-        if (font->extraRecord != (UInt16)(font->pageCount + 1) ||
-            recCount != (UInt16)(font->pageCount + 2)) {
-            DmCloseDatabase(db);
-            return false;
-        }
-    } else if (recCount != (UInt16)(font->pageCount + 1)) {
-        DmCloseDatabase(db);
-        return false;
-    }
-
     font->db = db;
     font->open = true;
     font->extraCount = 0;
+
     if (font->extraRecord != 0) {
         /* Load the small extras table once; it holds out-of-grid glyphs
            used by the bundled text. */
@@ -157,14 +243,16 @@ Boolean GlyphFontOpen(GlyphFont *font, const Char *name)
             const UInt8 *ep = (const UInt8 *)MemHandleLock(eh);
             if (ep != 0) {
                 UInt16 count = GlyphFontBe16(ep);
+                UInt16 itemSize = (UInt16)(2 + font->bytesPerGlyph);
                 UInt16 i;
-                if (count > 128) count = 128;
-                if (MemHandleSize(eh) >= (UInt32)(2 + count * 10)) {
+                if (count > kGlyphFontMaxExtras) count = kGlyphFontMaxExtras;
+                if (MemHandleSize(eh) >= (UInt32)(2 + (UInt32)count * itemSize)) {
                     for (i = 0; i < count; i++) {
                         UInt16 k;
-                        font->extraCode[i] = GlyphFontBe16(ep + 2 + i * 10);
-                        for (k = 0; k < 8; k++) {
-                            font->extraBytes[i][k] = ep[2 + i * 10 + 2 + k];
+                        UInt16 base = (UInt16)(2 + i * itemSize);
+                        font->extraCode[i] = GlyphFontBe16(ep + base);
+                        for (k = 0; k < font->bytesPerGlyph; k++) {
+                            font->extraBytes[i][k] = ep[base + 2 + k];
                         }
                     }
                     font->extraCount = count;
@@ -173,47 +261,86 @@ Boolean GlyphFontOpen(GlyphFont *font, const Char *name)
             }
         }
     }
-    {
-        UInt16 i;
-        for (i = 0; i < 31 && name[i] != '\0'; i++) {
-            font->name[i] = name[i];
-        }
-        font->name[i] = '\0';
-    }
+
+    GlyphFontSetName(font, name);
     return true;
 }
 
-/* Local helper is not allowed on 2.0 as a method; kept as a static function. */
+/* Lexicographic compare for DB names; keeps 08 before 12 in the font list. */
+static Int16 GlyphFontCompareName(const Char *a, const Char *b)
+{
+    while (*a != '\0' && *b != '\0') {
+        if (*a != *b) return (Int16)((UInt8)*a - (UInt8)*b);
+        a++;
+        b++;
+    }
+    return (Int16)((UInt8)*a - (UInt8)*b);
+}
+
+/* Enumerate every GLYF/LPRD font database. */
+UInt16 GlyphFontList(GlyphFontInfo *info, UInt16 maxEntries)
+{
+    UInt16 total;
+    UInt16 i;
+    UInt16 found = 0;
+
+    if (info == 0 || maxEntries == 0) return 0;
+    total = DmNumDatabases(0);
+
+    for (i = 0; i < total && found < maxEntries; i++) {
+        LocalID dbID = DmGetDatabase(0, i);
+        Char name[32];
+        UInt32 type = 0;
+        UInt32 creator = 0;
+
+        if (dbID == 0) continue;
+        MemSet(name, sizeof(name), 0);
+        if (DmDatabaseInfo(0, dbID, name, 0, 0, 0, 0, 0, 0, 0, 0,
+                           &type, &creator) != errNone) {
+            continue;
+        }
+        if (type != 'GLYF' || creator != 'LPRD') continue;
+        if (!GlyphFontProbe(name, &info[found])) continue;
+        found++;
+    }
+
+    /* Insertion sort by name: LPF08* before LPF12*, levels B < F < H. */
+    for (i = 1; i < found; i++) {
+        GlyphFontInfo tmp = info[i];
+        Int16 j = (Int16)(i - 1);
+
+        while (j >= 0 && GlyphFontCompareName(info[j].name, tmp.name) > 0) {
+            info[j + 1] = info[j];
+            j--;
+        }
+        info[j + 1] = tmp;
+    }
+    return found;
+}
+
+/* Pick the database with the most glyphs for a given cell size. */
+Boolean GlyphFontFind(GlyphFont *font, UInt8 cell)
+{
+    GlyphFontInfo list[16];
+    UInt16 count;
+    UInt16 i;
+    Int16 best = -1;
+
+    count = GlyphFontList(list, 16);
+    for (i = 0; i < count; i++) {
+        if (list[i].cellW != cell) continue;
+        if (best < 0 || list[i].glyphCount > list[best].glyphCount) {
+            best = (Int16)i;
+        }
+    }
+    if (best < 0) return false;
+    return GlyphFontOpen(font, list[best].name);
+}
+
 Boolean GlyphFontOpenAny(GlyphFont *font)
 {
-    static const Char *const names[] = {
-        "LPGB2312F",
-        "LPGB2312B",
-        "LPGB2312"
-    };
-    UInt16 i;
-    DmOpenRef db;
-
-    for (i = 0; i < 3; i++) {
-        if (GlyphFontOpen(font, names[i])) {
-            return true;
-        }
-    }
-
-    /* Last resort: any GLYF/LPRD database with the paged layout. */
-    db = DmOpenDatabaseByTypeCreator('GLYF', 'LPRD', dmModeReadOnly);
-    if (db != 0) {
-        LocalID dbID;
-        Char name[32];
-
-        DmOpenDatabaseInfo(db, &dbID, 0, 0, 0, 0);
-        DmDatabaseInfo(0, dbID, name, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
-        DmCloseDatabase(db);
-        if (GlyphFontOpen(font, name)) {
-            return true;
-        }
-    }
-
+    if (GlyphFontFind(font, 8)) return true;
+    if (GlyphFontFind(font, 12)) return true;
     return false;
 }
 
@@ -302,7 +429,9 @@ Boolean GlyphFontGet(GlyphFont *font, UInt16 code, UInt8 *out)
         for (i = 0; i < font->extraCount; i++) {
             if (font->extraCode[i] == code) {
                 UInt16 k;
-                for (k = 0; k < 8; k++) out[k] = font->extraBytes[i][k];
+                for (k = 0; k < font->bytesPerGlyph; k++) {
+                    out[k] = font->extraBytes[i][k];
+                }
                 return true;
             }
         }
@@ -313,37 +442,45 @@ Boolean GlyphFontGet(GlyphFont *font, UInt16 code, UInt8 *out)
     if (base == 0) {
         return false;
     }
-    for (i = 0; i < 8; i++) {
+    for (i = 0; i < font->bytesPerGlyph; i++) {
         out[i] = base[offset + i];
     }
     return true;
 }
 
-void GlyphFontDrawGlyph(Int16 x, Int16 y, const UInt8 *rows, UInt8 scale)
+void GlyphFontDrawGlyph(const GlyphFont *font, Int16 x, Int16 y,
+                        const UInt8 *rows, UInt8 scale)
 {
     UInt16 r;
     UInt16 c;
+    UInt16 cellW;
+    UInt16 cellH;
+    UInt16 rowBytes;
     Int16 right = 159;
 
-    if (rows == 0 || scale == 0) return;
+    if (font == 0 || rows == 0 || scale == 0) return;
 
-    for (r = 0; r < 8; r++) {
-        UInt8 bits = rows[r];
+    cellW = font->cellW;
+    cellH = font->cellH;
+    rowBytes = (UInt16)((cellW + 7) >> 3);
+
+    for (r = 0; r < cellH; r++) {
+        const UInt8 *row = rows + r * rowBytes;
 
         c = 0;
-        while (c < 8) {
+        while (c < cellW) {
             UInt16 start;
             Int16 x0;
             Int16 x1;
             UInt16 yy;
 
-            if ((bits & (UInt8)(0x80 >> c)) == 0) {
+            if ((row[c >> 3] & (UInt8)(0x80 >> (c & 7))) == 0) {
                 c++;
                 continue;
             }
 
             start = c;
-            while (c < 8 && (bits & (UInt8)(0x80 >> c)) != 0) {
+            while (c < cellW && (row[c >> 3] & (UInt8)(0x80 >> (c & 7))) != 0) {
                 c++;
             }
 
@@ -369,7 +506,7 @@ UInt16 GlyphFontDrawGbText(GlyphFont *font, Int16 x, Int16 y,
 {
     UInt16 i;
     UInt16 drawn = 0;
-    UInt8 rows[8];
+    UInt8 rows[kGlyphFontMaxGlyphBytes];
 
     if (!font || !text) return 0;
 
@@ -378,7 +515,8 @@ UInt16 GlyphFontDrawGbText(GlyphFont *font, Int16 x, Int16 y,
         UInt16 code = (UInt16)(((UInt16)text[i] << 8) | text[i + 1]);
 
         if (GlyphFontGet(font, code, rows)) {
-            GlyphFontDrawGlyph((Int16)(x + (Int16)drawn * 8 * scale), y, rows, scale);
+            GlyphFontDrawGlyph(font, (Int16)(x + (Int16)drawn * font->cellW * scale),
+                               y, rows, scale);
         }
         drawn++;
         i = (UInt16)(i + 2);

@@ -3,8 +3,8 @@
 // PilRC resources for LorePilotReader.
 // Palm OS 2.0-safe subset only:
 //   - plain ICON / SMALLICON (no icon families)
-//   - TITLE / BUTTON / ALERT
-//   - no menus, no Graffiti state indicator, no NOSAVEBEHIND
+//   - TITLE / BUTTON / ALERT / LIST / MENU
+//   - no Graffiti state indicator, no NOSAVEBEHIND
 //
 // IDs are symbolic: PilRC assigns them (RESETAUTOID 1000 upward) and writes
 // LorePilotReader_Rsc.h, which is the single source of truth for the C code.
@@ -27,16 +27,50 @@ ALERT ID AboutAlert
     INFORMATION
 BEGIN
     TITLE "About"
-    MESSAGE "LorePilot Reader\rGlyph database test\r\rReads LPGlyph8.pdb and LPGB2312*.pdb"
+    MESSAGE "LorePilot Reader\r\rFonts: LPF08B/F (8x8), LPF12B/F (12x12)\r\rTest menu runs the glyph and Qianziwen tests."
     BUTTONS "OK"
 END
 
-FORM ID MainForm AT (0 0 160 160)
+ALERT ID DeleteFontAlert
+    DEFAULTBUTTON 1
+    WARNING
 BEGIN
-    TITLE "LorePilotReader"
-    BUTTON "Glyph Test" ID MainGlyphTestButton AT (30 48 100 14)
-    BUTTON "GB Test"    ID MainGbTestButton    AT (30 68 100 14)
-    BUTTON "About"      ID MainAboutButton      AT (30 88 100 14)
+    TITLE "Delete Font"
+    MESSAGE "^0\r\rDelete this font database?"
+    BUTTONS "Delete" "Cancel"
+END
+
+ALERT ID DeleteFailedAlert
+    DEFAULTBUTTON 0
+    ERROR
+BEGIN
+    TITLE "Delete Failed"
+    MESSAGE "Could not delete ^0."
+    BUTTONS "OK"
+END
+
+MENU ID MainMenu
+BEGIN
+    PULLDOWN "Test"
+    BEGIN
+        MENUITEM "Glyph 8x8"     ID TestGlyph8x8
+        MENUITEM "GB2312 8x8"    ID TestGb8x8
+        MENUITEM "GB2312 12x12"  ID TestGb12x12
+    END
+    PULLDOWN "Options"
+    BEGIN
+        MENUITEM "Refresh List"  ID CmdRefreshList
+        MENUITEM SEPARATOR
+        MENUITEM "About"         ID CmdAbout
+    END
+END
+
+FORM ID MainForm AT (0 0 160 160)
+    MENUID MainMenu
+BEGIN
+    TITLE "LorePilot Fonts"
+    LIST "" ID MainFontList AT (2 18 156 104) VISIBLEITEMS 7
+    BUTTON "-" ID MainDeleteButton AT (2 128 20 14)
 END
 
 FORM ID GlyphTestForm AT (0 0 160 160)

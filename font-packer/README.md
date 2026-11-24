@@ -10,18 +10,18 @@ Target device: **Pilot Professional, Palm OS 2.0, 1MB, 160x160 monochrome**.
 
 ```powershell
 # default: reads src/atlas-8x8.txt and the local font,
-# writes out/* and reader/Src/GlyphAtlas.h
+# writes out/LPT08A.pdb and reader/Src/GlyphAtlas.h
 node font-packer/src/pack.mjs
 
 # all options
 node font-packer/src/pack.mjs `
   --in font-packer/src/atlas-8x8.txt `
-  --pdb font-packer/out/LPGlyph8.pdb `
+  --pdb font-packer/out/LPT08A.pdb `
   --header reader/Src/GlyphAtlas.h `
   --preview font-packer/out/preview.txt `
   --svg font-packer/out/preview.svg `
   --font fusion-pixel-8px-monospaced-zh_hans.ttf `
-  --name LPGlyph8 --verify --selftest
+  --name LPT08A --verify --selftest
 ```
 
 The packer has no dependencies; Node 18+ is enough. It needs the 8px pixel
@@ -31,7 +31,7 @@ Outputs:
 
 | File | Purpose |
 |---|---|
-| `out/LPGlyph8.pdb` | 510-byte record database for the device |
+| `out/LPT08A.pdb` | 510-byte record database for the device |
 | `out/preview.txt` | ASCII + hex preview, including the phrase at 1x and 2x |
 | `out/preview.svg` | large visual preview (open in any browser) |
 | `reader/Src/GlyphAtlas.h` | packed-in answer key for `GlyphTest.c` |
@@ -90,7 +90,7 @@ point-in-polygon sampling reproduces its intended pixels exactly. The output for
 
 ## PDB layout
 
-Database `LPGlyph8`, type `GLYF`, creator `LPRD`, Palm epoch timestamps,
+Database `LPT08A`, type `GLYF`, creator `LPRD`, Palm epoch timestamps,
 big-endian throughout.
 
 | Record | Contents |
@@ -161,59 +161,91 @@ glyph atlas.
 
 ## GB2312 paged font
 
-`src/pack-gb2312.mjs` builds a second, independent database from the same TTF:
+`src/pack-gb2312.mjs` builds the reader databases from the matching pixel font.
+Two cell sizes are supported; each produces a `basic` and a `full` variant.
 
 ```powershell
-# symbols + level-1 hanzi, A1-D7, 3 pages, 50,100 bytes
+# 8x8, symbols + level-1 hanzi, A1-D7, 3 pages, 50,100 bytes -> LPF08B.pdb
 node font-packer/src/pack-gb2312.mjs --level basic
 
-# symbols + level-1 + level-2 hanzi, A1-F7, 4 pages, 65,782 bytes
+# 8x8, adds level-2 hanzi, A1-F7, 4 pages, 65,782 bytes -> LPF08F.pdb
 node font-packer/src/pack-gb2312.mjs --level full
+
+# 12x12, A1-D7, 11 pages, 137,428 bytes -> LPF12B.pdb
+node font-packer/src/pack-gb2312.mjs --level basic --cell 12
+
+# 12x12, A1-F7, 16 pages, 197,062 bytes -> LPF12F.pdb
+node font-packer/src/pack-gb2312.mjs --level full --cell 12
+
+# hanzi-only variants (B0-D7, no Chinese punctuation) -> LPF08H.pdb / LPF12H.pdb
+node font-packer/src/pack-gb2312.mjs --level hanzi
+node font-packer/src/pack-gb2312.mjs --level hanzi --cell 12
 ```
 
 | Option | Meaning |
 |---|---|
-| `--level basic` / `1` | A1-D7: 4,371 glyphs (616 symbols + 3,755 level-1 hanzi) |
-| `--level full` / `2` | A1-F7: 7,379 glyphs (adds 3,008 level-2 hanzi) |
-| `--level hanzi` | B0-D7: 3,755 hanzi only, no Chinese punctuation |
-| `--pdb`, `--name` | default `LPGB2312B.pdb` / `LPGB2312B`, `LPGB2312F.pdb` / `LPGB2312F` |
+| `--level basic` / `1` | A1-D7: symbols + level-1 hanzi, tag `B` |
+| `--level full` / `2` | A1-F7: adds 3,008 level-2 hanzi, tag `F` |
+| `--level hanzi` | B0-D7: hanzi only, tag `H` |
+| `--cell 8` | 8x8, 8 bytes/glyph, 2048 glyphs/page, name part `08` |
+| `--cell 12` | 12x12, 24 bytes/glyph, 512 glyphs/page, name part `12` |
+| `--pdb`, `--name` | `LPF08B/F/H` for 8x8, `LPF12B/F/H` for 12x12 |
 
-Outputs `LPGB2312B.pdb` and/or `LPGB2312F.pdb`, plus two generated headers for
-the reader:
+### Naming convention
 
-- `reader/Src/GbSamples.h` — 10 sample characters with their expected 8 bytes
-  (`天地玄黄宇宙洪荒日月`), used for on-device byte-for-byte verification;
-- `reader/Src/GbText.h` — the full Qianziwen (1,250 units = 1,000 hanzi +
-  250 punctuation marks), encoded as GB2312 bytes with 40 units per page.
+All paged font databases use **`LPF<cell><level>`**:
 
-`--text-file` selects the UTF-8 source; the default is
-`font-packer/data/qianziwen.txt`. Text is read line by line and all whitespace
-is ignored, so the file can be laid out for editing.
+| Name | Cell | Range | Glyphs | Pages | Size |
+|---|---|---|---:|---:|---:|
+| `LPF08B` | 8x8 | A1-D7 | 4371 | 3 | 50,100 B |
+| `LPF08F` | 8x8 | A1-F7 | 7379 | 4 | 65,782 B |
+| `LPF08H` | 8x8 | B0-D7 | 3755 | 2 | 33,728 B |
+| `LPF12B` | 12x12 | A1-D7 | 4648 | 11 | 137,428 B |
+| `LPF12F` | 12x12 | A1-F7 | 7620 | 16 | 197,062 B |
+| `LPF12H` | 12x12 | B0-D7 | 3755 | 8 | 100,592 B |
+
+- `LPF` = LorePilot Font;
+- cell is zero-padded to two digits so lexicographic order matches size;
+- `B` = basic (with Chinese punctuation), `F` = full, `H` = hanzi only;
+- the file name and the Palm database name are always identical;
+- the reader sorts the font list by database name, so the order on screen is
+  `LPF08B`, `LPF08F`, `LPF08H`, `LPF12B`, `LPF12F`, `LPF12H`.
+
+The 8x8 atlas used by the `Glyph Test` form is a layout-0 test database, not a
+paged font, so it uses a distinct prefix: **`LPT08A`** (`LPT` = test).
+
+Each run also regenerates the sample answer header for its cell size:
+
+- 8x8: `reader/Src/GbSamples.h` (`kGbSampleCodes`, `kGbSampleBytes[][8]`);
+- 12x12: `reader/Src/GbSamples12.h` (`kGbSampleCodes12`, `kGbSampleBytes12[][24]`).
+
+`reader/Src/GbText.h` is cell-independent: the full Qianziwen (1,250 units =
+1,000 hanzi + 250 punctuation), 40 units per page.
 
 ### Paged layout (version 2)
 
 | Record | Contents |
 |---|---|
 | 0 | 48-byte header |
-| 1..N | one page, 2048 glyph slots x 8 bytes = 16,384 bytes |
+| 1..N | one page: 2048 slots x 8 bytes (8x8) or 512 slots x 24 bytes (12x12) |
 
 Header fields used by the reader:
 
-| Offset | Type | Field | basic | full |
-|---|---|---|---|---|
-| 0 | u32 | magic `LPG1` | | |
-| 4 | u16 | version | 2 | 2 |
-| 6/8/10 | u16 | cellW / cellH / bytesPerGlyph | 8 / 8 / 8 | 8 / 8 / 8 |
-| 12 | u16 | glyphCount (informational) | 4371 | 7379 |
-| 14 | u16 | layout | 1 (paged) | 1 |
-| 16 | u16 | glyphsPerRecord | 2048 | 2048 |
-| 18 | u16 | flags (bit0 = MSB-first) | 1 | 1 |
-| 32/34 | u16 | gbFirstRow / gbLastRow | A1 / D7 | A1 / F7 |
-| 36/38 | u16 | gbFirstCol / gbLastCol | A1 / FE | A1 / FE |
-| 40/42 | u16 | gbRows / gbCols | 55 / 94 | 87 / 94 |
-| 44 | u16 | gbPages | 3 | 4 |
-| 46 | u16 | gbPageGlyphs | 2048 | 2048 |
-| 28 | u32 | extrasRecord | 4 | 5 |
+| Offset | Type | Field | 8x8 basic | 8x8 full | 12x12 basic | 12x12 full |
+|---|---|---|---|---|---|---|
+| 0 | u32 | magic `LPG1` | | | | |
+| 4 | u16 | version | 2 | 2 | 2 | 2 |
+| 6/8/10 | u16 | cellW / cellH / bytesPerGlyph | 8/8/8 | 8/8/8 | 12/12/24 | 12/12/24 |
+| 12 | u16 | glyphCount (informational) | 4371 | 7379 | 4648 | 7620 |
+| 14 | u16 | layout | 1 | 1 | 1 | 1 |
+| 16 | u16 | glyphsPerRecord | 2048 | 2048 | 512 | 512 |
+| 18 | u16 | flags (bit0 = MSB-first) | 1 | 1 | 1 | 1 |
+| 32/34 | u16 | gbFirstRow / gbLastRow | A1/D7 | A1/F7 | A1/D7 | A1/F7 |
+| 36/38 | u16 | gbFirstCol / gbLastCol | A1/FE | A1/FE | A1/FE | A1/FE |
+| 40/42 | u16 | gbRows / gbCols | 55/94 | 87/94 | 55/94 | 87/94 |
+| 44 | u16 | gbPages | 3 | 4 | 11 | 16 |
+| 46 | u16 | gbPageGlyphs | 2048 | 2048 | 512 | 512 |
+| 28 | u32 | extrasRecord | 4 | 5 | 12 | 17 |
 
 The optional extras record holds glyphs that the dense grid cannot address:
 
@@ -221,8 +253,8 @@ The optional extras record holds glyphs that the dense grid cannot address:
 - level-2 hanzi when the `basic` PDB is installed but the text uses them
   (78 in the Qianziwen).
 
-Its layout is `u16 count`, then `count x (u16 code, 8 bytes)`. The reader copies
-it once at open time and looks up codes that fall outside the dense grid.
+Its layout is `u16 count`, then `count x (u16 code, bytesPerGlyph bytes)`.
+The reader copies it once at open time and looks up codes outside the grid.
 
 Address mapping is dense and O(1), so no per-row table is stored:
 
@@ -230,16 +262,31 @@ Address mapping is dense and O(1), so no per-row table is stored:
 hi = code >> 8; lo = code & 0xFF
 index = (hi - gbFirstRow) * gbCols + (lo - gbFirstCol)
 page  = index / gbPageGlyphs
-off   = (index % gbPageGlyphs) * 8
+off   = (index % gbPageGlyphs) * bytesPerGlyph
 record = 1 + page
 ```
 
 `basic` and `full` share the same formula and start at A1, so the reader does
-not branch on level; it only reads `gbLastRow`, `gbCols`, `gbPages` and
-`gbPageGlyphs` from the header. The reader caches three 16KB pages (LRU), which
-fits the 1MB Pilot Professional and avoids the 64KB single-chunk limit. The
-extras record is small (at most 128 glyphs) and is copied into a fixed table at
-open time, so it costs no page cache.
+not branch on level; it only reads `cellW`, `gbLastRow`, `gbCols`, `gbPages` and
+`gbPageGlyphs` from the header. The reader caches three pages (LRU): 48KB for
+8x8, 36KB for 12x12, both fine on a 1MB Pilot Professional and below the 64KB
+single-chunk limit. The extras record is at most 128 glyphs and is copied into a
+fixed table at open time, so it costs no page cache.
+
+### Qianziwen view in the reader
+
+`GbTest` shows one 40-unit page at a time, so page turns land on sentence
+boundaries (8 four-character lines). Layout follows the cell size:
+
+| Cell | 1x | 2x |
+|---|---|---|
+| 8x8 | 20 per line, 2 lines (y 39..55) | 10 per line, 4 lines (y 58..122) |
+| 12x12 | 13 per line, 4 lines (y 36..84) | 6 per line, 2 lines, first 12 units (y 84..132) |
+
+The bottom bar is `Prev` / `Next` / `Load` / `Back`; tapping any glyph shows its
+GB code and the first 8 data bytes; the status line shows the database name,
+cell size, glyph count, page count, sample result and `P n/32` plus the unit
+range.
 
 ### Coverage measured from the bundled font
 
@@ -255,32 +302,45 @@ open time, so it costs no page cache.
 ### Qianziwen view in the reader
 
 `GbTest` shows one 40-unit page at a time, so page turns land on sentence
-boundaries (8 four-character lines):
+boundaries (8 four-character lines). Layout follows the cell size:
 
-- 1x: 20 units per line, 2 lines;
-- 2x: 10 units per line, 4 lines;
-- bottom bar `Prev` / `Next` / `Load` / `Back`;
-- tapping any glyph shows its GB code and 8 bytes;
-- the status line shows `P n/32` plus the unit range.
+| Cell | 1x | 2x |
+|---|---|---|
+| 8x8 | 20 per line, 2 lines (y 39..55) | 10 per line, 4 lines (y 58..122) |
+| 12x12 | 13 per line, 4 lines (y 36..84) | 6 per line, 2 lines, first 12 units (y 84..132) |
+
+The bottom bar is `Prev` / `Next` / `Load` / `Back`; tapping any glyph shows its
+GB code and the first 8 data bytes; the status line shows the database name,
+cell size, glyph count, page count, sample result and `P n/32` plus the unit
+range.
 
 
 ## Font source
 
-`fusion-pixel-8px-monospaced-zh_hans.ttf` is the 8px pixel font used for
-`@text` blocks. It is monospaced with an 800-unit em square, so each glyph maps
-to an exact 8x8 cell.
+Two pixel fonts are used, one per cell size:
 
-**The font is not distributed with this repository.** Download
-"Fusion Pixel 8px Mono zh-Hans" from
-<https://github.com/TakWolf/fusion-pixel-font/releases>, then place the TTF at
+| Font | Cell | unitsPerEm | Used by |
+|---|---|---|---|
+| `fusion-pixel-8px-monospaced-zh_hans.ttf` | 8x8 | 800 | `pack.mjs` (`@text`), `pack-gb2312.mjs --cell 8` |
+| `fusion-pixel-12px-monospaced-zh_hans.ttf` | 12x12 | 1200 | `pack-gb2312.mjs --cell 12` |
+
+Both are monospaced pixel designs: `unitsPerEm / cell = 100` units per pixel,
+so point-in-polygon sampling at the cell centre reproduces the intended pixels
+exactly.
+
+**The fonts are not distributed with this repository.** Download
+"Fusion Pixel 8px/12px Mono zh-Hans" from
+<https://github.com/TakWolf/fusion-pixel-font/releases>, then place the TTFs at
 the repository root or pass `--font <path>`:
 
 ```powershell
-node font-packer/src/pack.mjs --font C:\fonts\fusion-pixel-8px-monospaced-zh_hans.ttf
+node font-packer/src/pack-gb2312.mjs --level basic --cell 12 `
+  --font C:\fonts\fusion-pixel-12px-monospaced-zh_hans.ttf
 ```
 
 If the file is missing, both packers stop with a `NO_FONT` error that repeats
-the download URL.
+the download URL. The 12x12 packer also rejects a font whose grid is not
+100 units per pixel, so an 8px font cannot silently produce a 12x12 database.
 
 License: SIL Open Font License 1.1 (see the font's own `LICENSE-OFL` file).
 The packer only needs the TTF at build time; nothing font-related goes into the

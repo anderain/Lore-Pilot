@@ -31,9 +31,8 @@
 #define kGlyphTestFormW         160
 #define kGlyphTestFormH         160
 
-#define kGlyphTestDbName        "LPGlyph8"
-#define kGlyphTestDbType        'GLYF'
-#define kGlyphTestDbCreator     'LPRD'
+#define kGlyphTestDbName        "LPT08A"
+#define kGlyphTestDbLegacyName  "LPGlyph8"
 
 #define kGlyphTestFontHeaderLen 32
 
@@ -67,6 +66,7 @@ typedef struct GlyphTestStateType {
     Boolean phraseOk;
     UInt16  textRecord;
     UInt16  phraseCount;
+    const Char *dbName;
     UInt16  phrase[kGlyphTestMaxPhrase];
     UInt8   rows[kGlyphTestMaxGlyphs][8];
 } GlyphTestStateType;
@@ -241,19 +241,25 @@ static void GlyphTestLoad(void)
     gGlyphTest.status = kGlyphTestNoDb;
     gGlyphTest.firstBad = -1;
     gGlyphTest.sumOk = false;
+    gGlyphTest.dbName = kGlyphTestDbName;
     GlyphTestLoadBuiltinPhrase();
 
     dbID = DmFindDatabase(0, kGlyphTestDbName);
+    if (dbID == 0) {
+        /* Pre-rename builds used LPGlyph8; keep reading it if present. */
+        dbID = DmFindDatabase(0, kGlyphTestDbLegacyName);
+        if (dbID != 0) {
+            gGlyphTest.dbName = kGlyphTestDbLegacyName;
+        }
+    }
     db = 0;
 
     if (dbID != 0) {
         db = DmOpenDatabase(0, dbID, dmModeReadOnly);
     }
     if (db == 0) {
-        db = DmOpenDatabaseByTypeCreator(kGlyphTestDbType, kGlyphTestDbCreator,
-                                         dmModeReadOnly);
-    }
-    if (db == 0) {
+        /* Do not fall back to any GLYF/LPRD database: those are paged fonts
+           (layout 1) with a different header, not the atlas test database. */
         GlyphTestUseBuiltin();
         gGlyphTest.status = kGlyphTestNoDb;
         return;
@@ -474,7 +480,7 @@ static void GlyphTestDrawStatus(void)
 
     /* line 1: database name, version, glyph count, phrase length */
     line[0] = '\0';
-    GlyphTestAppendStr(line, kGlyphTestDbName);
+    GlyphTestAppendStr(line, gGlyphTest.dbName);
     if (gGlyphTest.fromDb) {
         GlyphTestAppendStr(line, " v");
         GlyphTestAppendInt(line, gGlyphTest.version);

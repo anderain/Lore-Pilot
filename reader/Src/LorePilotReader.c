@@ -3,8 +3,11 @@
  *
  * Entry points for LorePilotReader.
  *
- * Target: Palm OS 2.0 (Pilot Professional). Only Palm OS 1.0 APIs are used;
- * there are no color/high-density/glue calls.
+ * Target: Palm OS 2.0 (Pilot Professional). Only Palm OS 1.0/2.x APIs are
+ * used; there are no color/high-density/glue calls.
+ *
+ * Main form is a list of installed GLYF/LPRD font databases with a "-"
+ * button that deletes the selected one. All tests live in the "Test" menu.
  *
  * Copyright (c) 1999-2000 Palm, Inc. or its subsidiaries.
  * All rights reserved.
@@ -16,6 +19,7 @@
 #include "LorePilotReader_Rsc.h"
 #include "GlyphTest.h"
 #include "GbTest.h"
+#include "FontList.h"
 
 /*********************************************************************
  * Internal Constants
@@ -29,9 +33,11 @@
  * Internal Functions
  *********************************************************************/
 
-static void MainFormInit(void)
+static void *GetObjectPtr(UInt16 objectID)
 {
-    /* No fields on this form; nothing to focus. */
+    FormType *frmP = FrmGetActiveForm();
+
+    return FrmGetObjectPtr(frmP, FrmGetObjectIndex(frmP, objectID));
 }
 
 static Boolean MainFormDoCommand(UInt16 command)
@@ -40,23 +46,27 @@ static Boolean MainFormDoCommand(UInt16 command)
 
     switch (command)
     {
-        case MainAboutButton:
-        {
+        case CmdAbout:
             FrmAlert(AboutAlert);
             break;
-        }
 
-        case MainGlyphTestButton:
-        {
+        case CmdRefreshList:
+            FontListRefresh(FrmGetActiveForm());
+            break;
+
+        case TestGlyph8x8:
             FrmGotoForm(GlyphTestForm);
             break;
-        }
 
-        case MainGbTestButton:
-        {
+        case TestGb8x8:
+            GbTestRequest(8);
             FrmGotoForm(GbTestForm);
             break;
-        }
+
+        case TestGb12x12:
+            GbTestRequest(12);
+            FrmGotoForm(GbTestForm);
+            break;
 
         default:
             handled = false;
@@ -69,22 +79,41 @@ static Boolean MainFormDoCommand(UInt16 command)
 static Boolean MainFormHandleEvent(EventType *eventP)
 {
     Boolean handled = false;
+    FormType *frmP;
 
     switch (eventP->eType)
     {
         case frmOpenEvent:
-            MainFormInit();
-            FrmDrawForm(FrmGetActiveForm());
+            frmP = FrmGetActiveForm();
+            FrmDrawForm(frmP);
+            FontListRefresh(frmP);
             handled = true;
             break;
 
         case frmUpdateEvent:
             FrmDrawForm(FrmGetActiveForm());
+            FontListRefresh(FrmGetActiveForm());
             handled = true;
             break;
 
+        case menuEvent:
+            MenuEraseStatus(0);
+            handled = MainFormDoCommand(eventP->data.menu.itemID);
+            break;
+
+        case lstSelectEvent:
+            if (eventP->data.lstSelect.listID == MainFontList) {
+                FontListSelect(FrmGetActiveForm(), eventP->data.lstSelect.selection);
+                handled = true;
+            }
+            break;
+
         case ctlSelectEvent:
-            handled = MainFormDoCommand(eventP->data.ctlSelect.controlID);
+            if (eventP->data.ctlSelect.controlID == MainDeleteButton)
+            {
+                FontListDeleteSelected(FrmGetActiveForm());
+                handled = true;
+            }
             break;
 
         default:

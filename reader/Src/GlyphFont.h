@@ -10,13 +10,16 @@
 
 #include <PalmOS.h>
 
-/* Page cache: 2400 units per page at most need 2-3 GB pages. */
+/* Page cache: a 12x12 page is 12KB, so three pages still fit comfortably. */
 #define kGlyphFontCachePages 3
+
+/* Largest supported glyph: 12x12 needs 24 bytes (2 per row). */
+#define kGlyphFontMaxGlyphBytes 24
+#define kGlyphFontMaxExtras     128
 
 typedef struct GlyphFontType {
     DmOpenRef db;
     Boolean   open;
-    Boolean   paged;             /* version 2 layout */
     UInt16    version;
     UInt16    cellW;
     UInt16    cellH;
@@ -33,22 +36,44 @@ typedef struct GlyphFontType {
     UInt16    nextVictim;
     UInt16    extraRecord;       /* record holding out-of-grid glyphs, 0 if none */
     UInt16    extraCount;
-    UInt16    extraCode[128];
-    UInt8     extraBytes[128][8];
+    UInt16    extraCode[kGlyphFontMaxExtras];
+    UInt8     extraBytes[kGlyphFontMaxExtras][kGlyphFontMaxGlyphBytes];
     Char      name[32];
 } GlyphFont;
 
-/* Try LPGB2312F, then LPGB2312B, then a shared name, then any GLYF/LPRD. */
-Boolean GlyphFontOpenAny(GlyphFont *font);
+/* Short description used by the font list. */
+typedef struct GlyphFontInfoType {
+    LocalID  dbID;
+    Char     name[32];
+    UInt16   cellW;
+    UInt16   cellH;
+    UInt16   glyphCount;
+    UInt16   pageCount;
+    UInt32   sizeBytes;
+    Boolean  valid;
+} GlyphFontInfo;
+
 Boolean GlyphFontOpen(GlyphFont *font, const Char *name);
+Boolean GlyphFontOpenAny(GlyphFont *font);
+
+/* Find the best database for a cell size (8 or 12). Prefers more glyphs. */
+Boolean GlyphFontFind(GlyphFont *font, UInt8 cell);
+
+/* Read header fields of a database without keeping it open. */
+Boolean GlyphFontProbe(const Char *name, GlyphFontInfo *info);
+
+/* Enumerate every GLYF/LPRD font database into info[]; returns the count. */
+UInt16 GlyphFontList(GlyphFontInfo *info, UInt16 maxEntries);
+
 void    GlyphFontClose(GlyphFont *font);
 
-/* Copy 8 bytes for a GB2312 double-byte code into out. Returns false for
- * out-of-range codes or blank slots. */
+/* Copy bytesPerGlyph bytes for a GB2312 code. Returns false for out-of-range
+ * codes or blank slots. out must hold at least kGlyphFontMaxGlyphBytes. */
 Boolean GlyphFontGet(GlyphFont *font, UInt16 code, UInt8 *out);
 
-/* Draw one 8x8 glyph as horizontal runs (Palm OS 2.0 safe). */
-void GlyphFontDrawGlyph(Int16 x, Int16 y, const UInt8 *rows, UInt8 scale);
+/* Draw one glyph as horizontal runs (Palm OS 2.0 safe). */
+void GlyphFontDrawGlyph(const GlyphFont *font, Int16 x, Int16 y,
+                        const UInt8 *rows, UInt8 scale);
 
 /* Draw GB2312 text at x/y. Returns number of glyphs drawn. */
 UInt16 GlyphFontDrawGbText(GlyphFont *font, Int16 x, Int16 y,

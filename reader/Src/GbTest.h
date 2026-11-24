@@ -9,6 +9,9 @@
 
 #include <PalmOS.h>
 
+/* Cell size requested by the Test menu: 8 or 12. */
+void    GbTestRequest(UInt8 cell);
+
 Boolean GbTestFormHandleEvent(EventType *eventP);
 
 #endif /* GBTEST_H_ */

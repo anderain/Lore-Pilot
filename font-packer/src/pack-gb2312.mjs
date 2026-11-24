@@ -1,15 +1,18 @@
 #!/usr/bin/env node
-// Pack GB2312 8x8 glyphs into a paged Palm OS record database.
+// Pack GB2312 glyphs into a paged Palm OS record database.
 //
-//   node font-packer/src/pack-gb2312.mjs --level basic   # A1-D7, ~48KB
-//   node font-packer/src/pack-gb2312.mjs --level full    # A1-F7, ~64KB
-//   node font-packer/src/pack-gb2312.mjs --level hanzi   # B0-D7, ~32KB
+//   node font-packer/src/pack-gb2312.mjs --level basic            # 8x8, A1-D7
+//   node font-packer/src/pack-gb2312.mjs --level full             # 8x8, A1-F7
+//   node font-packer/src/pack-gb2312.mjs --level basic --cell 12  # 12x12, A1-D7
+//
+// Database names follow LPF<cell><level>: LPF08B, LPF08F, LPF08H,
+// LPF12B, LPF12F, LPF12H. Cell is zero-padded so name order matches size.
 //
 // The layout is page-major with a dense O(1) mapping:
 //   index = (hi - gbFirstRow) * gbCols + (lo - gbFirstCol)
 //   page  = index / gbPageGlyphs
-//   off   = (index % gbPageGlyphs) * 8
-// Records 1..N hold one page each (gbPageGlyphs * 8 bytes).
+//   off   = (index % gbPageGlyphs) * bytesPerGlyph
+// Records 1..N hold one page each (gbPageGlyphs * bytesPerGlyph bytes).
 
 import fs from 'node:fs';
 import path from 'node:path';
@@ -21,11 +24,14 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const PACKER_ROOT = path.resolve(HERE, '..');
 const WORKSPACE_ROOT = path.resolve(PACKER_ROOT, '..');
 
-const CELL_W = 8;
-const CELL_H = 8;
-const BYTES_PER_GLYPH = 8;
-const PAGE_GLYPHS = 2048;
 const FONT_HEADER_SIZE = 48;
+
+// Page size stays near 12-16KB so a single record is small and the reader's
+// two-to-three page cache fits a 1MB device.
+const CELL_CONFIG = {
+  8:  { cell: 8,  bytesPerGlyph: 8,  pageGlyphs: 2048, tag: '8',  sampleSuffix: ''   },
+  12: { cell: 12, bytesPerGlyph: 24, pageGlyphs: 512,  tag: '12', sampleSuffix: '12' },
+};
 
 const LEVELS = {
   basic: { firstRow: 0xa1, lastRow: 0xd7, tag: 'B', label: 'A1-D7' },
@@ -35,10 +41,11 @@ const LEVELS = {
 
 const DEFAULTS = {
   level: 'basic',
-  font: path.join(WORKSPACE_ROOT, 'fusion-pixel-8px-monospaced-zh_hans.ttf'),
-  pdb: null,                 // derived from level
-  name: null,                // derived from level
-  samples: path.join(WORKSPACE_ROOT, 'reader', 'Src', 'GbSamples.h'),
+  cell: '8',
+  font: null,                // derived from cell
+  pdb: null,                 // derived from cell + level
+  name: null,                // derived from cell + level
+  samples: null,             // derived from cell
   text: path.join(WORKSPACE_ROOT, 'reader', 'Src', 'GbText.h'),
   'text-file': null,         // derived from level
   verify: true,
@@ -56,11 +63,11 @@ class PackError extends Error {
   }
 }
 
-function missingFontMessage() {
+function missingFontMessage(file) {
   return [
-    'font file not found: fusion-pixel-8px-monospaced-zh_hans.ttf',
+    `font file not found: ${file}`,
     'The font is not distributed with this repository.',
-    'Download "Fusion Pixel 8px Mono zh-Hans" (SIL OFL 1.1) from',
+    'Download "Fusion Pixel 8px/12px Mono zh-Hans" (SIL OFL 1.1) from',
     '  https://github.com/TakWolf/fusion-pixel-font/releases',
     'and place the TTF at the repository root, or pass --font <path>.',
   ].join('\n  ');
@@ -68,7 +75,7 @@ function missingFontMessage() {
 
 function parseArgs(argv) {
   const opts = { ...DEFAULTS };
-  const valueKeys = new Set(['level', 'font', 'pdb', 'name', 'samples', 'text', 'text-file']);
+  const valueKeys = new Set(['level', 'cell', 'font', 'pdb', 'name', 'samples', 'text', 'text-file']);
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -107,8 +114,27 @@ function parseArgs(argv) {
   opts.level = levelKey;
   const level = LEVELS[levelKey];
 
-  if (!opts.pdb) opts.pdb = path.join(PACKER_ROOT, 'out', `LPGB2312${level.tag}.pdb`);
-  if (!opts.name) opts.name = `LPGB2312${level.tag}`;
+  const cellKey = String(opts.cell).toLowerCase();
+  if (!CELL_CONFIG[cellKey]) {
+    throw new PackError('BAD_CELL', `--cell must be 8 or 12 (got ${opts.cell})`);
+  }
+  opts.cell = cellKey;
+  const cfg = CELL_CONFIG[cellKey];
+
+  const cellTag = cfg.cell < 10 ? `0${cfg.cell}` : `${cfg.cell}`;
+  const base = `LPF${cellTag}${level.tag}`;
+  if (!opts.font) {
+    opts.font = path.join(WORKSPACE_ROOT,
+      cfg.cell === 8
+        ? 'fusion-pixel-8px-monospaced-zh_hans.ttf'
+        : 'fusion-pixel-12px-monospaced-zh_hans.ttf');
+  }
+  if (!opts.pdb) opts.pdb = path.join(PACKER_ROOT, 'out', `${base}.pdb`);
+  if (!opts.name) opts.name = base;
+  if (!opts.samples) {
+    opts.samples = path.join(WORKSPACE_ROOT, 'reader', 'Src',
+      cfg.cell === 8 ? 'GbSamples.h' : 'GbSamples12.h');
+  }
   if (!opts['text-file']) opts['text-file'] = path.join(PACKER_ROOT, 'data', 'qianziwen.txt');
   if (opts.name.length < 1 || opts.name.length > 31) {
     throw new PackError('BAD_ARG', `database name must be 1..31 chars, got ${opts.name.length}`);
@@ -125,10 +151,13 @@ Options:
   --level basic|1   A1-D7 (symbols + level-1 hanzi), default
   --level full|2    A1-F7 (symbols + level-1 + level-2 hanzi)
   --level hanzi     B0-D7 (hanzi only, no Chinese punctuation)
-  --font <file>     8px pixel TTF
-  --pdb <file>      output database (default: font-packer/out/LPGB2312<B|F|H>.pdb)
-  --name <name>     Palm database name (default: LPGB2312<B|F|H>)
-  --samples <file>  sample answer header (default: reader/Src/GbSamples.h)
+  --cell 8|12       glyph cell size (default 8)
+  --font <file>     pixel TTF; default depends on --cell
+  --pdb <file>      output database
+                    (default: LPF08<B|F|H>.pdb for 8, LPF12<B|F|H>.pdb for 12)
+  --name <name>     Palm database name (same default as --pdb)
+  --samples <file>  sample answer header
+                    (default: GbSamples.h for 8, GbSamples12.h for 12)
   --text <file>     demo text header (default: reader/Src/GbText.h)
   --text-file <f>   UTF-8 source text (default: font-packer/data/qianziwen.txt)
   --no-verify       skip re-parsing the written PDB
@@ -178,10 +207,10 @@ function decodeGbTable(level) {
   return { slots, byChar, gbk, rows, cols, count: index };
 }
 
-function buildGlyphPages(font, table, level) {
-  const pages = Math.ceil((table.rows * table.cols) / PAGE_GLYPHS);
+function buildGlyphPages(font, table, cfg) {
+  const pages = Math.ceil((table.rows * table.cols) / cfg.pageGlyphs);
   const pageBuffers = [];
-  for (let i = 0; i < pages; i++) pageBuffers.push(Buffer.alloc(PAGE_GLYPHS * BYTES_PER_GLYPH));
+  for (let i = 0; i < pages; i++) pageBuffers.push(Buffer.alloc(cfg.pageGlyphs * cfg.bytesPerGlyph));
 
   let included = 0;
   let missing = 0;
@@ -194,26 +223,26 @@ function buildGlyphPages(font, table, level) {
       if (missingSamples.length < 12) missingSamples.push(entry.ch);
       continue;
     }
-    const { rows } = font.rasterize(entry.cp, CELL_W, CELL_H);
-    const page = Math.floor(entry.index / PAGE_GLYPHS);
-    const off = (entry.index % PAGE_GLYPHS) * BYTES_PER_GLYPH;
-    for (let i = 0; i < BYTES_PER_GLYPH; i++) pageBuffers[page][off + i] = rows[i];
+    const { rows } = font.rasterize(entry.cp, cfg.cell, cfg.cell);
+    const page = Math.floor(entry.index / cfg.pageGlyphs);
+    const off = (entry.index % cfg.pageGlyphs) * cfg.bytesPerGlyph;
+    for (let i = 0; i < cfg.bytesPerGlyph; i++) pageBuffers[page][off + i] = rows[i];
     included++;
   }
 
   return { pages, pageBuffers, included, missing, missingSamples };
 }
 
-function buildFontHeader(level, table, pages, included, extraRecord) {
+function buildFontHeader(level, table, cfg, pages, included, extraRecord) {
   const h = Buffer.alloc(FONT_HEADER_SIZE);
   h.write('LPG1', 0, 4, 'ascii');
   h.writeUInt16BE(2, 4);                    // version
-  h.writeUInt16BE(CELL_W, 6);
-  h.writeUInt16BE(CELL_H, 8);
-  h.writeUInt16BE(BYTES_PER_GLYPH, 10);
+  h.writeUInt16BE(cfg.cell, 6);
+  h.writeUInt16BE(cfg.cell, 8);
+  h.writeUInt16BE(cfg.bytesPerGlyph, 10);
   h.writeUInt16BE(included, 12);            // informational
   h.writeUInt16BE(1, 14);                   // layout = paged
-  h.writeUInt16BE(PAGE_GLYPHS, 16);
+  h.writeUInt16BE(cfg.pageGlyphs, 16);
   h.writeUInt16BE(0x0001, 18);              // bit0 MSB-first
   h.writeUInt16BE(0, 20);                   // firstCode
   h.writeUInt16BE(0, 22);                   // compression none
@@ -227,7 +256,7 @@ function buildFontHeader(level, table, pages, included, extraRecord) {
   h.writeUInt16BE(table.rows, 40);
   h.writeUInt16BE(table.cols, 42);
   h.writeUInt16BE(pages, 44);
-  h.writeUInt16BE(PAGE_GLYPHS, 46);
+  h.writeUInt16BE(cfg.pageGlyphs, 46);
   return h;
 }
 
@@ -279,7 +308,7 @@ function glyphFromPdb(parsed, h, code) {
   return rec.subarray(slot.off, slot.off + h.bytesPerGlyph);
 }
 
-function verifyPdb(buf, opts, level, table, expected) {
+function verifyPdb(buf, opts, level, cfg, table, expected) {
   const parsed = parsePdb(buf);
   if (parsed.name !== opts.name) throw new PackError('BAD_NAME', `database name "${parsed.name}" != "${opts.name}"`);
   if (parsed.type !== 'GLYF') throw new PackError('BAD_TYPE', `type "${parsed.type}" != "GLYF"`);
@@ -288,11 +317,11 @@ function verifyPdb(buf, opts, level, table, expected) {
   const h = parseFontHeader(parsed.records[0]);
   const expect = {
     version: 2,
-    cellW: CELL_W,
-    cellH: CELL_H,
-    bytesPerGlyph: BYTES_PER_GLYPH,
+    cellW: cfg.cell,
+    cellH: cfg.cell,
+    bytesPerGlyph: cfg.bytesPerGlyph,
     layout: 1,
-    glyphsPerRecord: PAGE_GLYPHS,
+    glyphsPerRecord: cfg.pageGlyphs,
     firstRow: level.firstRow,
     lastRow: level.lastRow,
     firstCol: 0xa1,
@@ -300,7 +329,7 @@ function verifyPdb(buf, opts, level, table, expected) {
     rows: table.rows,
     cols: table.cols,
     pages: expected.pages,
-    pageGlyphs: PAGE_GLYPHS,
+    pageGlyphs: cfg.pageGlyphs,
     textRecord: expected.extraRecord,
   };
   for (const [k, v] of Object.entries(expect)) {
@@ -314,7 +343,7 @@ function verifyPdb(buf, opts, level, table, expected) {
     throw new PackError('BAD_COUNT', `record count ${parsed.numRecords} != ${expectedRecords}`);
   }
   for (let i = 1; i <= h.pages; i++) {
-    if (parsed.records[i].length !== PAGE_GLYPHS * BYTES_PER_GLYPH) {
+    if (parsed.records[i].length !== cfg.pageGlyphs * cfg.bytesPerGlyph) {
       throw new PackError('BAD_PAGE', `page ${i - 1} is ${parsed.records[i].length} bytes`);
     }
   }
@@ -324,21 +353,23 @@ function verifyPdb(buf, opts, level, table, expected) {
     const extras = parsed.records[h.textRecord];
     if (!extras || extras.length < 2) throw new PackError('BAD_EXTRA', 'extras record missing');
     const count = extras.readUInt16BE(0);
-    if (extras.length !== 2 + count * 10) {
+    const itemSize = 2 + cfg.bytesPerGlyph;
+    if (extras.length !== 2 + count * itemSize) {
       throw new PackError('BAD_EXTRA', `extras record is ${extras.length} bytes for ${count} glyphs`);
     }
     if (count !== expected.extraCodes.length) {
       throw new PackError('BAD_EXTRA', `extras count ${count} != ${expected.extraCodes.length}`);
     }
     for (let i = 0; i < count; i++) {
-      const code = extras.readUInt16BE(2 + i * 10);
+      const base = 2 + i * itemSize;
+      const code = extras.readUInt16BE(base);
       if (code !== expected.extraCodes[i]) {
         throw new PackError('BAD_EXTRA', `extra ${i} code ${code.toString(16)} != ${expected.extraCodes[i].toString(16)}`);
       }
       if (slotOffset(code, h)) {
         throw new PackError('BAD_EXTRA', `extra code ${code.toString(16)} is also addressable in the dense grid`);
       }
-      const got = extras.subarray(2 + i * 10 + 2, 2 + i * 10 + 10);
+      const got = extras.subarray(base + 2, base + 2 + cfg.bytesPerGlyph);
       if (!got.equals(expected.extraBytes[i])) {
         throw new PackError('BYTE_MISMATCH', `extra ${i} bytes differ`);
       }
@@ -366,7 +397,7 @@ function verifyPdb(buf, opts, level, table, expected) {
   return { parsed, h };
 }
 
-function runSelfTest(buf, opts, level, table, expected) {
+function runSelfTest(buf, opts, level, cfg, table, expected) {
   const cases = [];
   const expectFail = (name, codes, mutate) => {
     const list = Array.isArray(codes) ? codes : [codes];
@@ -374,7 +405,7 @@ function runSelfTest(buf, opts, level, table, expected) {
     const replacement = mutate(copy);
     const target = Buffer.isBuffer(replacement) ? replacement : copy;
     try {
-      verifyPdb(target, opts, level, table, expected);
+      verifyPdb(target, opts, level, cfg, table, expected);
       cases.push({ name, ok: false, detail: 'accepted' });
     } catch (e) {
       const known = e instanceof PackError || e instanceof PdbError;
@@ -409,25 +440,33 @@ function hex(buf) {
   return Array.from(buf, (b) => b.toString(16).padStart(2, '0').toUpperCase()).join(' ');
 }
 
-function renderSamples(samples) {
+function renderSamples(samples, cfg) {
+  const guard = `LOREPILOT_GB_SAMPLES${cfg.sampleSuffix}_H`;
+  const sfx = cfg.sampleSuffix;              // '' for 8x8, '12' for 12x12
+  const rowBytes = cfg.bytesPerGlyph;
   const lines = [];
   lines.push('/* Generated by font-packer/src/pack-gb2312.mjs. Do not edit. */');
-  lines.push('#ifndef LOREPILOT_GB_SAMPLES_H');
-  lines.push('#define LOREPILOT_GB_SAMPLES_H');
+  lines.push(`#ifndef ${guard}`);
+  lines.push(`#define ${guard}`);
   lines.push('');
-  lines.push(`#define kGbSampleCount ${samples.length}`);
+  lines.push(`#define kGbSampleCell${sfx}            ${cfg.cell}`);
+  lines.push(`#define kGbSampleBytesPerGlyph${sfx}   ${rowBytes}`);
+  lines.push(`#define kGbSampleCount${sfx} ${samples.length}`);
   lines.push('');
-  lines.push('static const unsigned short kGbSampleCodes[kGbSampleCount] = {');
+  lines.push(`static const unsigned short kGbSampleCodes${sfx}[kGbSampleCount${sfx}] = {`);
   lines.push(`    ${samples.map((s) => `0x${s.code.toString(16).toUpperCase().padStart(4, '0')}`).join(', ')}`);
   lines.push('};');
   lines.push('');
-  lines.push('static const unsigned char kGbSampleBytes[kGbSampleCount][8] = {');
+  lines.push(`static const unsigned char kGbSampleBytes${sfx}[kGbSampleCount${sfx}][${rowBytes}] = {`);
   for (const s of samples) {
-    lines.push(`    { ${Array.from(s.bytes, (b) => `0x${b.toString(16).padStart(2, '0').toUpperCase()}`).join(', ')} }, /* ${s.ch} */`);
+    const chunk = Array.from(s.bytes, (b) => `0x${b.toString(16).padStart(2, '0').toUpperCase()}`);
+    const parts = [];
+    for (let i = 0; i < chunk.length; i += 12) parts.push(chunk.slice(i, i + 12).join(', '));
+    lines.push(`    { ${parts.join(',\n      ')} }, /* ${s.ch} */`);
   }
   lines.push('};');
   lines.push('');
-  lines.push('#endif /* LOREPILOT_GB_SAMPLES_H */');
+  lines.push(`#endif /* ${guard} */`);
   return lines.join('\n') + '\n';
 }
 
@@ -500,17 +539,24 @@ function isDenseCode(code) {
 function main() {
   const opts = parseArgs(process.argv.slice(2));
   const level = LEVELS[opts.level];
+  const cfg = CELL_CONFIG[opts.cell];
 
-  if (!fs.existsSync(opts.font)) throw new PackError('NO_FONT', missingFontMessage());
+  if (!fs.existsSync(opts.font)) throw new PackError('NO_FONT', missingFontMessage(opts.font));
   const font = loadFont(opts.font);
-  if (font.unitsPerEm % CELL_W !== 0) {
-    throw new PackError('BAD_FONT', `unitsPerEm ${font.unitsPerEm} is not divisible by ${CELL_W}`);
+  if (!Number.isInteger(font.unitsPerEm / cfg.cell)) {
+    throw new PackError('BAD_FONT',
+      `unitsPerEm ${font.unitsPerEm} is not divisible by cell size ${cfg.cell}; ` +
+      'is this the matching pixel font?');
+  }
+  if (font.unitsPerEm / cfg.cell !== 100) {
+    throw new PackError('BAD_FONT',
+      `font grid is ${font.unitsPerEm / cfg.cell} units per pixel, expected 100`);
   }
 
   const table = decodeGbTable(level);
-  const built = buildGlyphPages(font, table, level);
+  const built = buildGlyphPages(font, table, cfg);
   const extraRecordIndex = built.pages + 1;   // 0 = header, 1..pages = pages
-  const header = buildFontHeader(level, table, built.pages, built.included,
+  const header = buildFontHeader(level, table, cfg, built.pages, built.included,
                                  extraRecordIndex);
 
   const sampleChars = [...SAMPLE_TEXT];
@@ -518,14 +564,14 @@ function main() {
     const code = table.byChar.get(ch);
     if (!code) throw new PackError('BAD_SAMPLE', `sample character ${ch} is not in GB2312`);
     const entry = table.slots.get(code);
-    const bytes = Buffer.from(font.rasterize(entry.cp, CELL_W, CELL_H).rows);
+    const bytes = Buffer.from(font.rasterize(entry.cp, cfg.cell, cfg.cell).rows);
     return { ch, code, cp: entry.cp, bytes };
   });
 
   const demo = encodeDemoText(opts['text-file'], table, font);
 
   // Glyphs used by the text that this database cannot address go into a
-  // separate record: header u16 count, then count x (u16 code, 8 bytes).
+  // separate record: header u16 count, then count x (u16 code, bytesPerGlyph).
   // This covers both GBK-only characters and GB2312 characters that fall
   // outside the selected level (e.g. level-2 hanzi in the basic build).
   const addressable = (code) => {
@@ -538,19 +584,18 @@ function main() {
     throw new PackError('TOO_MANY_EXTRAS',
       `${extraChars.length} out-of-grid glyphs; the reader caches at most 128`);
   }
-  const extraIndex = new Map();
-  extraChars.forEach((ch, i) => extraIndex.set(ch, i));
+  const extraItemSize = 2 + cfg.bytesPerGlyph;
   let extraRecord = null;
   if (extraChars.length > 0) {
-    extraRecord = Buffer.alloc(2 + extraChars.length * 10);
+    extraRecord = Buffer.alloc(2 + extraChars.length * extraItemSize);
     extraRecord.writeUInt16BE(extraChars.length, 0);
     extraChars.forEach((ch, i) => {
       const code = table.gbk.get(ch);
       const cp = ch.codePointAt(0);
-      const base = 2 + i * 10;
+      const base = 2 + i * extraItemSize;
       extraRecord.writeUInt16BE(code, base);
-      const rows = font.rasterize(cp, CELL_W, CELL_H).rows;
-      for (let k = 0; k < 8; k++) extraRecord[base + 2 + k] = rows[k];
+      const rows = font.rasterize(cp, cfg.cell, cfg.cell).rows;
+      for (let k = 0; k < cfg.bytesPerGlyph; k++) extraRecord[base + 2 + k] = rows[k];
     });
   }
 
@@ -567,7 +612,7 @@ function main() {
     extraRecord: extraRecord ? built.pages + 1 : 0,
     extraCodes: extraRecord ? extraChars.map((ch) => table.gbk.get(ch)) : [],
     extraBytes: extraRecord
-      ? extraChars.map((ch) => Buffer.from(font.rasterize(ch.codePointAt(0), CELL_W, CELL_H).rows))
+      ? extraChars.map((ch) => Buffer.from(font.rasterize(ch.codePointAt(0), cfg.cell, cfg.cell).rows))
       : [],
   };
 
@@ -583,21 +628,21 @@ function main() {
   fs.writeFileSync(opts.pdb, builtPdb.buffer);
 
   let verifyInfo = null;
-  if (opts.verify) verifyInfo = verifyPdb(fs.readFileSync(opts.pdb), opts, level, table, expected);
-  const selfTests = opts.selftest ? runSelfTest(fs.readFileSync(opts.pdb), opts, level, table, expected) : [];
+  if (opts.verify) verifyInfo = verifyPdb(fs.readFileSync(opts.pdb), opts, level, cfg, table, expected);
+  const selfTests = opts.selftest ? runSelfTest(fs.readFileSync(opts.pdb), opts, level, cfg, table, expected) : [];
 
   fs.mkdirSync(path.dirname(path.resolve(opts.samples)), { recursive: true });
-  fs.writeFileSync(opts.samples, renderSamples(samples));
+  fs.writeFileSync(opts.samples, renderSamples(samples, cfg));
   fs.mkdirSync(path.dirname(path.resolve(opts.text)), { recursive: true });
   fs.writeFileSync(opts.text, renderText(demo.bytes, demo.chars.length));
 
   if (!opts.quiet) {
-    console.log(`level        ${opts.level} (${level.label})`);
+    console.log(`level        ${opts.level} (${level.label}), cell ${cfg.cell}x${cfg.cell}`);
     console.log(`font         ${opts.font}`);
     console.log(`database     ${opts.name}  type=GLYF creator=LPRD`);
     console.log(`range        rows ${level.firstRow.toString(16).toUpperCase()}-${level.lastRow.toString(16).toUpperCase()}, ${table.rows}x${table.cols} slots`);
     console.log(`glyphs       ${built.included} with glyphs, ${built.missing} blank slots`);
-    console.log(`pages        ${built.pages} x ${PAGE_GLYPHS} glyphs (${PAGE_GLYPHS * BYTES_PER_GLYPH} bytes/page)`);
+    console.log(`pages        ${built.pages} x ${cfg.pageGlyphs} glyphs (${cfg.pageGlyphs * cfg.bytesPerGlyph} bytes/page)`);
     console.log(`pdb          ${opts.pdb}  ${builtPdb.buffer.length} bytes`);
     console.log(`records      ${records.length} (1 header + ${built.pages} pages${extraRecord ? ' + 1 extras' : ''})`);
     console.log(`samples      ${opts.samples}`);

@@ -19,12 +19,12 @@ const WORKSPACE_ROOT = path.resolve(PACKER_ROOT, '..');
 
 const DEFAULTS = {
   in: path.join(HERE, 'atlas-8x8.txt'),
-  pdb: path.join(PACKER_ROOT, 'out', 'LPGlyph8.pdb'),
+  pdb: path.join(PACKER_ROOT, 'out', 'LPT08A.pdb'),
   header: path.join(WORKSPACE_ROOT, 'reader', 'Src', 'GlyphAtlas.h'),
   preview: path.join(PACKER_ROOT, 'out', 'preview.txt'),
   svg: path.join(PACKER_ROOT, 'out', 'preview.svg'),
   font: path.join(WORKSPACE_ROOT, 'fusion-pixel-8px-monospaced-zh_hans.ttf'),
-  name: 'LPGlyph8',
+  name: 'LPT08A',
   type: 'GLYF',
   creator: 'LPRD',
   verify: true,
@@ -113,7 +113,7 @@ function printUsage() {
 
 Options:
   --in <file>       ASCII atlas (default: font-packer/src/atlas-8x8.txt)
-  --pdb <file>      output database (default: font-packer/out/LPGlyph8.pdb)
+  --pdb <file>      output database (default: font-packer/out/LPT08A.pdb)
   --header <file>   generated C header (default: reader/Src/GlyphAtlas.h)
   --preview <file>  ASCII preview (default: font-packer/out/preview.txt)
   --svg <file>      SVG preview (default: font-packer/out/preview.svg)
