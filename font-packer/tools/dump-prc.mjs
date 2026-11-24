@@ -48,9 +48,10 @@ console.table(resources.map((r, i) => ({ i, type: r.type, id: r.id, offset: r.of
 // reader/Rsc/LorePilotReader_Rsc.rcp.
 const required = [
   ['tAIN', 1000], ['tver', 1000], ['code', 0], ['data', 0],
-  ['tAIB', 1000], ['tAIB', 1001], ['MBAR', 1005],
+  ['tAIB', 1000], ['tAIB', 1001], ['MBAR', 1008],
   ['Talt', 1001], ['Talt', 1002], ['Talt', 1003], ['Talt', 1004],
-  ['tFRM', 1012], ['tFRM', 1015], ['tFRM', 1018],
+  ['Talt', 1005], ['Talt', 1006], ['Talt', 1007],
+  ['tFRM', 1015], ['tFRM', 1023], ['tFRM', 1024], ['tFRM', 1027],
 ];
 let missing = 0;
 for (const [t, id] of required) {

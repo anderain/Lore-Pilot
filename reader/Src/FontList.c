@@ -128,7 +128,7 @@ void FontListRefresh(FormType *formP)
     }
     LstDrawList(list);
 
-    minusIndex = FrmGetObjectIndex(formP, MainDeleteButton);
+    minusIndex = FrmGetObjectIndex(formP, MainDeleteFontButton);
     minus = (ControlType *)FrmGetObjectPtr(formP, minusIndex);
     if (minus != 0) {
         CtlSetEnabled(minus, gFontCount > 0);
@@ -154,7 +154,7 @@ void FontListSelect(FormType *formP, Int16 itemNum)
     LstSetSelection(list, itemNum);
     LstDrawList(list);
 
-    minusIndex = FrmGetObjectIndex(formP, MainDeleteButton);
+    minusIndex = FrmGetObjectIndex(formP, MainDeleteFontButton);
     minus = (ControlType *)FrmGetObjectPtr(formP, minusIndex);
     if (minus != 0) {
         CtlSetEnabled(minus, itemNum >= 0 && itemNum < gFontCount);

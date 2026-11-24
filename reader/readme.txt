@@ -52,13 +52,20 @@ The resource file now uses only 2.0-safe objects: a plain ICON and SMALLICON
 state indicator, no NOSAVEBEHIND.  The other icon bitmaps are kept for a future
 3.5+/high-density build but are not referenced by the .rcp.
 
-Source files added for the font feasibility test:
+Source files:
 
   GlyphTest.c/.h    8x8 glyph atlas test form
   GlyphFont.c/.h    paged GB2312 glyph access (3-page LRU + extras table),
                     supports 8x8 (8 bytes/glyph) and 12x12 (24 bytes/glyph)
   GbTest.c/.h       Qianziwen reader test form (32 pages), cell-size aware
   FontList.c/.h     installed font list, row formatting and delete button
+  TextDb.c/.h       reader for LPBK/LPRD paginated books (64-byte header,
+                    one page per record, GB2312 double-byte body)
+  BookList.c/.h     bookshelf model: groups LPB_<NAME>_<NN> parts into one
+                    row, deletes every part of a book
+  ReaderForm.c/.h   full-screen page reader (no form objects; everything is
+                    drawn), page turning across part boundaries
+  UiFont.c/.h       6x8 FontHybird ASCII drawing, normal and inverse
   GlyphAtlas.h      generated: 21 glyphs + phrase answer key
   GbSamples.h       generated: 10 sample glyphs (8x8) for byte-for-byte check
   GbSamples12.h     generated: 10 sample glyphs (12x12)
@@ -67,9 +74,26 @@ Source files added for the font feasibility test:
 The generated headers are committed so the project builds without the
 Fusion Pixel TTF; regenerate them with font-packer (see ../README.md).
 
-Main form: list of installed GLYF/LPRD font databases plus a "-" delete
-button. Tests moved to the menu: Test > Glyph 8x8 / GB2312 8x8 /
-GB2312 12x12; Options > Refresh List / About.
+Add TextDb.c, BookList.c, ReaderForm.c and UiFont.c (plus their .h files) to
+the CodeWarrior project.  `reader/build.ps1` builds the same sources from the
+command line without touching the .mcp.
+
+Main form ("Bookshelf"): a "Books" list of installed LPBK books with Read/Del
+buttons, and a "Fonts" list of installed GLYF/LPRD fonts with its own Del
+button.  Tests live in the menu: Test > Glyph 8x8 / GB2312 8x8 / GB2312 12x12;
+Options > Refresh Lists / About.
+
+Reader layout (matches lore-teller/src/lib/render.ts):
+
+  y 0..7      black band, white 6x8 ASCII: book name + global page/total
+  y 8..149    white body, glyph font, vertically centred
+  y 150..157  black band, white 6x8 ASCII: PREV  MENU  NEXT
+  y 158       white progress border
+  y 159       white progress fill (160 * page / total)
+
+The bottom 12 rows are split into three equal touch columns: left = previous
+page, middle = back to the bookshelf, right = next page.  The hardware
+up/down keys also turn pages.
 
 Database names (file name == Palm database name):
 

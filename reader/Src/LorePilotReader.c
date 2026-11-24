@@ -6,8 +6,9 @@
  * Target: Palm OS 2.0 (Pilot Professional). Only Palm OS 1.0/2.x APIs are
  * used; there are no color/high-density/glue calls.
  *
- * Main form is a list of installed GLYF/LPRD font databases with a "-"
- * button that deletes the selected one. All tests live in the "Test" menu.
+ * Main form is the bookshelf: a list of installed LPBK books with Read/Del
+ * buttons, and a list of installed GLYF/LPRD font databases with its own Del
+ * button. All tests live in the "Test" menu.
  *
  * Copyright (c) 1999-2000 Palm, Inc. or its subsidiaries.
  * All rights reserved.
@@ -20,6 +21,8 @@
 #include "GlyphTest.h"
 #include "GbTest.h"
 #include "FontList.h"
+#include "BookList.h"
+#include "ReaderForm.h"
 
 /*********************************************************************
  * Internal Constants
@@ -33,11 +36,12 @@
  * Internal Functions
  *********************************************************************/
 
-static void *GetObjectPtr(UInt16 objectID)
+static void MainFormRefresh(void)
 {
     FormType *frmP = FrmGetActiveForm();
 
-    return FrmGetObjectPtr(frmP, FrmGetObjectIndex(frmP, objectID));
+    BookListRefresh(frmP);
+    FontListRefresh(frmP);
 }
 
 static Boolean MainFormDoCommand(UInt16 command)
@@ -51,7 +55,7 @@ static Boolean MainFormDoCommand(UInt16 command)
             break;
 
         case CmdRefreshList:
-            FontListRefresh(FrmGetActiveForm());
+            MainFormRefresh();
             break;
 
         case TestGlyph8x8:
@@ -76,6 +80,19 @@ static Boolean MainFormDoCommand(UInt16 command)
     return handled;
 }
 
+static void MainFormReadSelected(void)
+{
+    const BookInfo *book = BookListGetSelected();
+
+    if (book == 0) return;
+
+    if (!ReaderFormRequest(book->displayName, book->cell)) {
+        FrmAlert(OpenBookFailedAlert);
+        return;
+    }
+    FrmGotoForm(ReaderForm);
+}
+
 static Boolean MainFormHandleEvent(EventType *eventP)
 {
     Boolean handled = false;
@@ -86,13 +103,13 @@ static Boolean MainFormHandleEvent(EventType *eventP)
         case frmOpenEvent:
             frmP = FrmGetActiveForm();
             FrmDrawForm(frmP);
-            FontListRefresh(frmP);
+            MainFormRefresh();
             handled = true;
             break;
 
         case frmUpdateEvent:
             FrmDrawForm(FrmGetActiveForm());
-            FontListRefresh(FrmGetActiveForm());
+            MainFormRefresh();
             handled = true;
             break;
 
@@ -102,17 +119,37 @@ static Boolean MainFormHandleEvent(EventType *eventP)
             break;
 
         case lstSelectEvent:
-            if (eventP->data.lstSelect.listID == MainFontList) {
-                FontListSelect(FrmGetActiveForm(), eventP->data.lstSelect.selection);
+            if (eventP->data.lstSelect.listID == MainBookList) {
+                BookListSelect(FrmGetActiveForm(),
+                               eventP->data.lstSelect.selection);
+                handled = true;
+            } else if (eventP->data.lstSelect.listID == MainFontList) {
+                FontListSelect(FrmGetActiveForm(),
+                               eventP->data.lstSelect.selection);
                 handled = true;
             }
             break;
 
         case ctlSelectEvent:
-            if (eventP->data.ctlSelect.controlID == MainDeleteButton)
+            switch (eventP->data.ctlSelect.controlID)
             {
-                FontListDeleteSelected(FrmGetActiveForm());
-                handled = true;
+                case MainReadButton:
+                    MainFormReadSelected();
+                    handled = true;
+                    break;
+
+                case MainDeleteBookButton:
+                    BookListDeleteSelected(FrmGetActiveForm());
+                    handled = true;
+                    break;
+
+                case MainDeleteFontButton:
+                    FontListDeleteSelected(FrmGetActiveForm());
+                    handled = true;
+                    break;
+
+                default:
+                    break;
             }
             break;
 
@@ -138,6 +175,10 @@ static Boolean AppHandleEvent(EventType *eventP)
         {
             case MainForm:
                 FrmSetEventHandler(frmP, MainFormHandleEvent);
+                break;
+
+            case ReaderForm:
+                FrmSetEventHandler(frmP, ReaderFormHandleEvent);
                 break;
 
             case GlyphTestForm:
