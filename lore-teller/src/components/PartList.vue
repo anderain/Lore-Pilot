@@ -28,7 +28,7 @@ function downloadAll(parts: PartResult[]) {
 </script>
 
 <template>
-  <div class="rounded-xl bg-white p-5 shadow-sm">
+  <div class="flex h-full flex-col rounded-xl bg-white p-5 shadow-sm">
     <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
       <h2 class="text-sm font-semibold uppercase tracking-wide text-stone-500">
         分卷（{{ parts.length }} 个，共 {{ totalPages }} 页）
@@ -43,16 +43,16 @@ function downloadAll(parts: PartResult[]) {
     </div>
 
     <ul class="divide-y divide-stone-100">
-      <li v-for="part in parts" :key="part.fileName" class="flex flex-wrap items-center gap-3 py-2">
-        <span class="font-mono text-sm text-stone-900">{{ part.fileName }}</span>
-        <span class="text-xs text-stone-500">
-          第 {{ part.firstPage }}–{{ part.firstPage + part.pageCount - 1 }} 页
-        </span>
-        <span class="text-xs text-stone-500">{{ (part.size / 1024).toFixed(1) }} KB</span>
-        <span v-if="part.replaced.length" class="text-xs text-amber-600">
-          {{ part.replaced.length }} 个替代字符
-        </span>
-        <span class="ml-auto flex gap-2">
+      <li v-for="part in parts" :key="part.fileName" class="py-2.5">
+        <div class="font-mono text-sm text-stone-900">{{ part.fileName }}</div>
+        <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
+          <span>第 {{ part.firstPage }}–{{ part.firstPage + part.pageCount - 1 }} 页</span>
+          <span>{{ (part.size / 1024).toFixed(1) }} KB</span>
+          <span v-if="part.replaced.length" class="text-amber-600">
+            {{ part.replaced.length }} 个替代字符
+          </span>
+        </div>
+        <div class="mt-1.5 flex gap-2">
           <button
             class="rounded-lg border border-stone-300 px-3 py-1 text-sm hover:border-stone-500"
             @click="emit('preview', part)"
@@ -65,7 +65,7 @@ function downloadAll(parts: PartResult[]) {
           >
             下载
           </button>
-        </span>
+        </div>
       </li>
     </ul>
   </div>

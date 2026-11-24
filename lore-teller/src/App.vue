@@ -111,19 +111,20 @@ async function generate() {
       <li v-for="warning in result.warnings" :key="warning">• {{ warning }}</li>
     </ul>
 
-    <PartList
-      v-if="result"
-      :parts="result.parts"
-      :total-pages="result.totalPages"
-      @preview="(part) => (previewPart = part)"
-    />
+    <div v-if="result" class="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
+      <PartList
+        :parts="result.parts"
+        :total-pages="result.totalPages"
+        @preview="(part) => (previewPart = part)"
+      />
 
-    <PreviewPanel
-      v-if="result && previewPart"
-      :result="result"
-      :part="previewPart"
-      :display-name="result.displayName"
-    />
+      <PreviewPanel
+        v-if="previewPart"
+        :result="result"
+        :part="previewPart"
+        :display-name="result.displayName"
+      />
+    </div>
 
     <footer class="pt-4 text-xs text-stone-400">
       版面：160×160，顶部 8 行黑底显示名称与页码，正文 {{ result?.charsPerLine ?? 20 }} 字/行、

@@ -124,7 +124,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="rounded-xl bg-white p-5 shadow-sm">
+  <div class="flex h-full flex-col rounded-xl bg-white p-5 shadow-sm">
     <div class="mb-3 flex items-center justify-between">
       <h2 class="text-sm font-semibold uppercase tracking-wide text-stone-500">预览 160×160</h2>
       <span v-if="part" class="font-mono text-xs text-stone-500">{{ part.fileName }}</span>
@@ -138,8 +138,7 @@ onMounted(async () => {
 
     <canvas
       ref="canvas"
-      class="pixelated mx-auto block rounded border border-stone-300 bg-white"
-      :style="{ width: `${160 * SCALE}px`, height: `${160 * SCALE}px` }"
+      class="pixelated mx-auto block h-auto w-full max-w-[640px] rounded border border-stone-300 bg-white"
     ></canvas>
 
     <div class="mt-3 flex items-center justify-between text-sm">
