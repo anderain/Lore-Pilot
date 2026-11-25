@@ -14,7 +14,7 @@ const PAGE_COUNTS = PAGES_PER_PART_OPTIONS;
 
 const props = defineProps<{
   modelValue: Options;
-  fileInfo: { name: string; size: number; encoding: TextEncoding } | null;
+  encoding: TextEncoding;
 }>();
 
 const emit = defineEmits<{
@@ -38,72 +38,82 @@ const cells = [
   { label: '8px', value: 8 as const },
   { label: '12px', value: 12 as const },
 ];
+
+const pagesHint = computed(() => {
+  // 8px: 20 chars x 17 lines; 12px: 13 x 11. A page is 680 / 286 bytes of text.
+  const perVolume = props.modelValue.pagesPerPart;
+  return `${perVolume} 页约 ${(perVolume * 0.7).toFixed(0)} KB（8px）/ ${(perVolume * 0.3).toFixed(0)} KB（12px）`;
+});
 </script>
 
 <template>
-  <div class="rounded-xl border border-line bg-card p-5 shadow-paper">
-    <div v-if="fileInfo" class="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-ink-soft">
-      <span class="font-medium text-ink">{{ fileInfo.name }}</span>
-      <span>{{ (fileInfo.size / 1024).toFixed(1) }} KB</span>
-      <label class="flex items-center gap-1">
-        编码
-        <select
-          class="rounded border border-line px-1 py-0.5"
-          :value="fileInfo.encoding"
-          @change="emit('encoding', ($event.target as HTMLSelectElement).value as TextEncoding)"
-        >
-          <option value="utf-8">UTF-8</option>
-          <option value="gbk">GBK</option>
-        </select>
-      </label>
+  <div class="space-y-5">
+    <div>
+      <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-soft">每卷页数</span>
+      <select
+        class="w-full rounded-lg border border-line bg-card px-3 py-2 text-sm"
+        :value="modelValue.pagesPerPart"
+        @change="patch({ pagesPerPart: Number(($event.target as HTMLSelectElement).value) })"
+      >
+        <option v-for="count in PAGE_COUNTS" :key="count" :value="count">
+          {{ count }} 页 / 卷
+        </option>
+      </select>
+      <span class="mt-1 block text-xs text-ink-faint">
+        决定每个 PDB 装多少页：页数越多，单卷越大、卷数越少。Palm 内存有限，100 页最稳妥。
+      </span>
+      <span class="mt-0.5 block text-xs text-ink-faint">当前：{{ pagesHint }}</span>
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-3">
-      <label class="block">
-        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-soft">Display name</span>
-        <input
-          :value="modelValue.displayName"
-          maxlength="16"
-          placeholder="MYBOOK"
-          class="w-full rounded-lg border px-3 py-2 font-mono text-sm uppercase tracking-wider"
-          :class="nameOk ? 'border-line' : 'border-red-400'"
-          @input="onNameInput"
-        />
-        <span class="mt-1 block text-xs" :class="nameOk ? 'text-ink-faint' : 'text-red-700'">
-          1–16 位字母或数字
-        </span>
-      </label>
+    <label class="block">
+      <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-soft">显示名称</span>
+      <input
+        :value="modelValue.displayName"
+        maxlength="16"
+        placeholder="MYBOOK"
+        class="w-full rounded-lg border bg-card px-3 py-2 font-mono text-sm uppercase tracking-wider"
+        :class="nameOk ? 'border-line' : 'border-red-400'"
+        @input="onNameInput"
+      />
+      <span class="mt-1 block text-xs" :class="nameOk ? 'text-ink-faint' : 'text-red-700'">
+        1–16 位字母或数字。显示在 Palm 书架的行首和阅读页顶部，文件名形如
+        <code class="font-mono">LPB_名称_01.pdb</code>。
+      </span>
+    </label>
 
-      <div>
-        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-soft">每卷页数</span>
-        <select
-          class="w-full rounded-lg border border-line px-3 py-2 text-sm"
-          :value="modelValue.pagesPerPart"
-          @change="patch({ pagesPerPart: Number(($event.target as HTMLSelectElement).value) })"
+    <div>
+      <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-soft">字号</span>
+      <div class="flex gap-2">
+        <button
+          v-for="cell in cells"
+          :key="cell.value"
+          class="flex-1 rounded-lg border px-2 py-2 text-sm"
+          :class="modelValue.cell === cell.value
+            ? 'border-seal bg-seal text-white'
+            : 'border-line bg-card text-ink-soft hover:border-ink-faint'"
+          @click="patch({ cell: cell.value })"
         >
-          <option v-for="count in PAGE_COUNTS" :key="count" :value="count">
-            {{ count }} 页 / 卷
-          </option>
-        </select>
-        <span class="mt-1 block text-xs text-ink-faint">每卷可单独装进 Palm</span>
+          {{ cell.label }}
+        </button>
       </div>
+      <span class="mt-1 block text-xs text-ink-faint">
+        8px 每页 17 行、单卷更小；12px 更易读、每页 11 行、体积约为 2 倍。
+      </span>
+    </div>
 
-      <div>
-        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-soft">字号</span>
-        <div class="flex gap-2">
-          <button
-            v-for="cell in cells"
-            :key="cell.value"
-            class="flex-1 rounded-lg border px-2 py-2 text-sm"
-            :class="modelValue.cell === cell.value
-              ? 'border-seal bg-seal text-white'
-              : 'border-line bg-card text-ink-soft hover:border-ink-faint'"
-            @click="patch({ cell: cell.value })"
-          >
-            {{ cell.label }}
-          </button>
-        </div>
-      </div>
+    <div>
+      <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-soft">文本编码</span>
+      <select
+        class="w-full rounded-lg border border-line bg-card px-3 py-2 text-sm"
+        :value="encoding"
+        @change="emit('encoding', ($event.target as HTMLSelectElement).value as TextEncoding)"
+      >
+        <option value="utf-8">UTF-8</option>
+        <option value="gbk">GBK</option>
+      </select>
+      <span class="mt-1 block text-xs text-ink-faint">
+        按源文件的编码解码。选错会提示解码失败，换另一个再试即可。
+      </span>
     </div>
   </div>
 </template>

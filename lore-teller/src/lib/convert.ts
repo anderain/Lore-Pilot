@@ -5,6 +5,7 @@ import { wrapAll } from './layout';
 import { paginate } from './paginate';
 import { toFullwidthText } from './toFullwidth';
 import { buildTextParts, type BuildResult } from './split';
+import { phasePercent, type ProgressCallback } from './progress';
 import type { TextEncoding } from './decode';
 
 export interface ConvertOptions {
@@ -13,6 +14,8 @@ export interface ConvertOptions {
   /** Pages per volume. */
   pagesPerPart: number;
   encoding: TextEncoding;
+  /** Called as the pipeline advances; omit for the fastest path. */
+  onProgress?: ProgressCallback;
 }
 
 export interface ConvertResult extends BuildResult {
@@ -39,6 +42,9 @@ export function displayNameFromFile(fileName: string): string {
 
 export function convertText(buffer: ArrayBuffer, options: ConvertOptions): ConvertResult {
   const { charsPerLine, linesPerPage } = CELL_CONFIG[options.cell];
+  const report = options.onProgress;
+
+  report?.({ phase: 'decode', done: 0, total: 1, percent: phasePercent('decode', 0, 1) });
 
   // Trust the user's encoding choice: strict decode so mojibake cannot slip
   // through silently.
@@ -54,10 +60,23 @@ export function convertText(buffer: ArrayBuffer, options: ConvertOptions): Conve
   }
   const normalised = stripBom(decodedText).replace(/\r\n?/g, '\n');
 
+  report?.({ phase: 'decode', done: 1, total: 1, percent: phasePercent('decode', 1, 1) });
+
   // Body characters all become fullwidth so every cell is one glyph.
-  const fullwidthLines = normalised
-    .split('\n')
-    .map((line) => toFullwidthText(line));
+  const sourceLines = normalised.split('\n');
+  const fullwidthLines: string[] = [];
+  const reportEvery = Math.max(1, Math.floor(sourceLines.length / 100));
+  for (let i = 0; i < sourceLines.length; i++) {
+    fullwidthLines.push(toFullwidthText(sourceLines[i]));
+    if (report !== undefined && (i % reportEvery === 0 || i + 1 === sourceLines.length)) {
+      report({
+        phase: 'layout',
+        done: i + 1,
+        total: sourceLines.length,
+        percent: phasePercent('layout', i + 1, sourceLines.length),
+      });
+    }
+  }
   const logicalLines = fullwidthLines.map((text) => ({ text, hard: true }));
 
   const wrapped = wrapAll(logicalLines, charsPerLine);
@@ -69,7 +88,10 @@ export function convertText(buffer: ArrayBuffer, options: ConvertOptions): Conve
     charsPerLine,
     linesPerPage,
     pagesPerPart: options.pagesPerPart,
+    onProgress: report,
   });
+
+  report?.({ phase: 'pack', done: pages.length, total: pages.length, percent: 100 });
 
   const charCount = [...normalised.replace(/\n/g, '')].length;
   const warnings: string[] = [];

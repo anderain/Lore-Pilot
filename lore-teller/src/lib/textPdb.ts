@@ -8,7 +8,7 @@
 //   u16 textLen
 //   u8  text[textLen]        GB2312 double bytes
 
-import { isDenseGb, lookupGb } from './gb2312';
+import { lookupGb } from './gb2312';
 import type { Page } from './paginate';
 
 export const TEXT_DB_TYPE = 'LPBK';
@@ -59,12 +59,14 @@ function be32(value: number): number[] {
 export function encodeLine(line: string): { bytes: number[]; replaced: string[] } {
   const bytes: number[] = [];
   const replaced: string[] = [];
+  // One lookup per character: the table entry already carries `dense`.
+  const question = lookupGb('？')?.code ?? 0xff1f;
 
   for (const ch of line) {
     const hit = lookupGb(ch);
-    if (hit === null || !isDenseGb(ch)) {
+    if (hit === null || !hit.dense) {
       replaced.push(ch);
-      bytes.push(...be16(lookupGb('？')!.code));
+      bytes.push(...be16(question));
       continue;
     }
     bytes.push(...be16(hit.code));

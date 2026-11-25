@@ -15,6 +15,7 @@ import {
   type TextPdbHeader,
 } from './textPdb';
 import type { Page } from './paginate';
+import { phasePercent, type ProgressCallback } from './progress';
 
 /** Progress bar rows written into every header (border + fill). */
 export const PROGRESS_ROWS = 2;
@@ -22,8 +23,8 @@ export const PROGRESS_ROWS = 2;
 /** Default pages per volume: 100 pages is about 70 KB at 8px. */
 export const DEFAULT_PAGES_PER_PART = 100;
 
-/** Selectable volumes sizes in the web app, in pages. */
-export const PAGES_PER_PART_OPTIONS = [100, 200, 500] as const;
+/** Selectable volume sizes in the web app, in pages. */
+export const PAGES_PER_PART_OPTIONS = [100, 200, 500, 1000] as const;
 
 export interface BuildOptions {
   displayName: string;
@@ -38,6 +39,8 @@ export interface BuildOptions {
    * fine. Pages are never split.
    */
   maxPartBytes?: number;
+  /** Called while page records and PDBs are built. */
+  onProgress?: ProgressCallback;
 }
 
 export interface PartResult {
@@ -70,10 +73,26 @@ export function partName(displayName: string, index: number): string {
 }
 
 export function buildTextParts(pages: Page[], options: BuildOptions): BuildResult {
-  const records = pages.map((p) => buildPageRecord(p));
+  const report = options.onProgress;
   const totalPages = pages.length;
   const pagesPerPart = Math.max(1, Math.floor(options.pagesPerPart));
   const maxBytes = options.maxPartBytes ?? Number.POSITIVE_INFINITY;
+
+  // Encode every page once; this is the expensive half of the pack phase.
+  const records: Array<{ bytes: Uint8Array; replaced: string[] }> = [];
+  const pageReportEvery = Math.max(1, Math.floor(totalPages / 50));
+  for (let i = 0; i < totalPages; i++) {
+    records.push(buildPageRecord(pages[i]));
+    if (report !== undefined && (i % pageReportEvery === 0 || i + 1 === totalPages)) {
+      // The pack phase is split 50/50 between encoding and assembling.
+      report({
+        phase: 'pack',
+        done: i + 1,
+        total: totalPages * 2,
+        percent: phasePercent('pack', i + 1, totalPages * 2),
+      });
+    }
+  }
 
   // Every volume pays for the PDB header, the record-0 entry and the 64-byte
   // header record, so start the running size at that fixed cost.
@@ -98,14 +117,19 @@ export function buildTextParts(pages: Page[], options: BuildOptions): BuildResul
   if (current.length > 0) groups.push(current);
 
   if (groups.length > 99) {
+    const needed = Math.ceil(totalPages / 99);
+    const suggestion =
+      PAGES_PER_PART_OPTIONS.find((n) => n >= needed) ?? needed;
     throw new Error(
-      `需要 ${groups.length} 卷，超过 99 卷；请把每卷页数调大（当前 ${pagesPerPart}）。`,
+      `这本 ${totalPages} 页的书按每卷 ${pagesPerPart} 页需要 ${groups.length} 卷，` +
+        `超过 99 卷上限。请把每卷页数调到 ${suggestion} 或更大。`,
     );
   }
 
   const parts: PartResult[] = [];
   let firstPage = 1;
   const replacedAll: string[] = [];
+  const groupReportEvery = 1;
 
   groups.forEach((indices, partIndex) => {
     const dbName = partName(options.displayName, partIndex);
@@ -138,6 +162,16 @@ export function buildTextParts(pages: Page[], options: BuildOptions): BuildResul
       replaced,
     });
     firstPage += indices.length;
+
+    if (report !== undefined && (partIndex % groupReportEvery === 0 ||
+        partIndex + 1 === groups.length)) {
+      report({
+        phase: 'pack',
+        done: totalPages + partIndex + 1,
+        total: totalPages * 2,
+        percent: phasePercent('pack', totalPages + partIndex + 1, totalPages * 2),
+      });
+    }
   });
 
   return {

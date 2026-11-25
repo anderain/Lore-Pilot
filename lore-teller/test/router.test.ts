@@ -33,14 +33,19 @@ describe('router shell', () => {
     expect(text).toContain('工具');
   });
 
-  it('renders the converter on /tool', async () => {
+  it('opens the tool on step 1', async () => {
     const wrapper = await mountAt('/tool');
-    expect(wrapper.text()).toContain('生成 PDB');
+    const text = wrapper.text();
+    expect(text).toContain('Lore-Teller 分卷工具');
+    expect(text).toContain('第 1 步');
+    expect(text).toContain('选择文件');
+    // Step 1 is the file picker: no page-count control yet.
+    expect(text).not.toContain('每卷页数');
   });
 
   it('leaves the home page empty for now', async () => {
     const wrapper = await mountAt('/');
-    expect(wrapper.text()).not.toContain('生成 PDB');
+    expect(wrapper.text()).not.toContain('分卷工具');
     expect(wrapper.find('main').text()).toBe('');
   });
 });

@@ -37,10 +37,17 @@ Copy-Item font-packer\out\LPF12F.pdb lore-teller\public\fonts\
 
 ## 界面流程
 
-1. 拖入或选择 `.txt`（UTF-8 / GBK 自动检测，可手动切换）；
-2. 从下拉框选择每卷页数（100 / 200 / 500，默认 100）、字号（8px / 12px）、display name（1–16 位字母数字）；
-3. 点“生成 PDB”，得到卷列表；
-4. 每卷可以预览（160×160，4× 放大）或下载；多卷时可“下载全部”。
+工具页是一个三步向导（`/#/tool`）：
+
+1. **第 1 步 · 选择文件** —— 拖入或选择 `.txt`，显示文件名与体积；
+2. **第 2 步 · 分卷设置** —— 每卷页数（100 / 200 / 500 / 1000）、显示名称
+   （1–16 位字母数字）、字号（8px / 12px）、文本编码（UTF-8 / GBK），每项都有一行说明；
+3. **第 3 步 · 预览与导出** —— 进入即自动生成；生成中显示旋转指示器与
+   `解码 / 排版 / 打包 N%` 进度，完成后得到卷列表与 160×160 预览；
+   可点「重新生成」或「上一步」改参数。
+
+生成跑在 **Web Worker** 里（`src/workers/convert.worker.ts`），几十 MB 的书也不会
+卡住界面；不支持 Worker 的环境（jsdom 测试）自动回退到主线程同步执行。
 
 **卷是独立文件**：`LPB_<NAME>_<NN>.pdb` 可以单独装上 Palm、单独打开、单独删除，
 不需要同一本书的其他卷。这正是为 1MB 内存设计的——机器上只需要放当前在读的那一卷。
@@ -75,10 +82,12 @@ y 159      进度条填充（白色，长度 = 160 × page / total）
 src/
   App.vue       站点头部 + 导航 + RouterView
   router/       vue-router（hash 模式：/#/ 与 /#/tool）
-  views/        HomeView（暂时留空）、ToolView（分割器）
-  components/   FileDrop, OptionsForm, PartList, PreviewPanel
+  views/        HomeView（暂时留空）、ToolView（三步向导）
+  components/   FileDrop, OptionsForm, PartList, PreviewPanel, Spinner
   lib/          decode, gb2312, toFullwidth, layout, paginate,
-                textPdb, split, glyphFont, render, convert
+                textPdb, split, glyphFont, render, convert,
+                convertAsync（Worker 代理）、progress
+  workers/      convert.worker.ts（在后台跑整条流水线）
   fonts/        hybrid6x8.ts、uiGlyphs.ts（均由脚本生成，入库）
 scripts/
   gen-hybrid-font.mjs    从 reader/Src/FontHybird6x8.h 生成 6×8 表
@@ -86,6 +95,7 @@ scripts/
   inspect-text-pdb.mjs   独立解析并打印页表
   make-sample.ts         无浏览器生成样例 PDB
   preview-bmp.ts         把某一页渲染成 BMP，便于人工检查
+  bench-convert.ts       大文件转换耗时与阶段分布
   show-footer.ts         终端打印阅读页页脚
   show-shelf.ts          终端打印书架
   show-goto.ts           终端打印跳页面板
