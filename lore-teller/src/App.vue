@@ -9,6 +9,11 @@ const nav = [
   { name: '工具', to: '/tool' },
 ] as const;
 
+const github = {
+  name: 'Github',
+  href: 'https://github.com/anderain/Lore-Pilot',
+};
+
 const currentPath = computed(() => route.path);
 </script>
 
@@ -17,7 +22,7 @@ const currentPath = computed(() => route.path);
     <header class="border-b border-line">
       <div class="mx-auto flex max-w-5xl flex-wrap items-baseline justify-between gap-3 px-4 py-4">
         <RouterLink to="/" class="text-lg font-semibold tracking-tight text-ink hover:text-seal">
-          Lore-Teller
+          Lore-Pilot
         </RouterLink>
 
         <nav class="flex items-center gap-1 text-sm">
@@ -32,6 +37,14 @@ const currentPath = computed(() => route.path);
           >
             {{ item.name }}
           </RouterLink>
+          <a
+            :href="github.href"
+            target="_blank"
+            rel="noreferrer noopener"
+            class="rounded px-2.5 py-1 text-ink-soft transition hover:bg-paper-deep hover:text-ink"
+          >
+            {{ github.name }}
+          </a>
         </nav>
       </div>
     </header>

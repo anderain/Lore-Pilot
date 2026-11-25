@@ -25,10 +25,10 @@ async function mountAt(path: string) {
 }
 
 describe('router shell', () => {
-  it('shows the Lore-Teller header and both nav links', async () => {
+  it('shows the Lore-Pilot header and both nav links', async () => {
     const wrapper = await mountAt('/');
     const text = wrapper.text();
-    expect(text).toContain('Lore-Teller');
+    expect(text).toContain('Lore-Pilot');
     expect(text).toContain('首页');
     expect(text).toContain('工具');
   });

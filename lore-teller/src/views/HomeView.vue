@@ -12,16 +12,38 @@ const shots = [
   { src: shotGoto, label: '跳转', alt: '跳页面板：数字键盘' },
 ];
 
-const installSteps = [
+const base = import.meta.env.BASE_URL;
+
+interface InstallStep {
+  no: number;
+  title: string;
+  body: string;
+  links?: Array<{ label: string; href: string }>;
+}
+
+const installSteps: InstallStep[] = [
   {
+    no: 1,
+    title: '下载',
+    body: '下载程序与字库：',
+    links: [
+      { label: '阅读器程序', href: `${base}LorePilotReader.prc` },
+      { label: '8×8 字库', href: `${base}fonts/LPF08F.pdb` },
+      { label: '12×12 字库', href: `${base}fonts/LPF12F.pdb` },
+    ],
+  },
+  {
+    no: 2,
     title: '安装字体',
     body: '把 LPF08F.pdb（8×8）或 LPF12F.pdb（12×12）同步到机器上。它们是中文点阵字库，没有字体时正文无法显示。',
   },
   {
+    no: 3,
     title: '安装程序',
     body: '同步 LorePilotReader.prc，启动器里会出现 Lore-Pilot 图标。',
   },
   {
+    no: 4,
     title: '切分书页并导入',
     body: '用分卷工具把 TXT 转成 LPB_<书名>_<卷号>.pdb，按需要只导入想读的那几卷。',
   },
@@ -57,7 +79,7 @@ const installSteps = [
           <img
             :src="shot.src"
             :alt="shot.alt"
-            class="aspect-square w-full rounded-xl border border-line bg-card object-contain shadow-paper"
+            class="aspect-square w-full border border-line bg-card object-contain shadow-paper"
           />
           <figcaption class="text-center text-xs text-ink-faint">{{ shot.label }}</figcaption>
         </figure>
@@ -67,19 +89,36 @@ const installSteps = [
     <!-- Install -->
     <section class="space-y-4">
       <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-soft">如何安装</h2>
-      <ol class="grid gap-4 sm:grid-cols-3">
+      <ol class="grid gap-4 sm:grid-cols-2">
         <li
-          v-for="(step, index) in installSteps"
-          :key="step.title"
+          v-for="step in installSteps"
+          :key="step.no"
           class="rounded-xl border border-line bg-card p-5 shadow-paper"
         >
           <div class="flex items-center gap-3">
             <span class="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-seal text-sm font-medium text-white">
-              {{ index + 1 }}
+              {{ step.no }}
             </span>
             <h3 class="text-sm font-semibold text-ink">{{ step.title }}</h3>
           </div>
-          <p class="mt-3 text-sm leading-relaxed text-ink-soft">{{ step.body }}</p>
+          <p class="mt-3 text-sm leading-relaxed text-ink-soft">
+            <span>{{ step.body }}</span>
+            <span v-if="step.links">
+              <template v-for="(link, index) in step.links" :key="link.href">
+                <a
+                  :href="link.href"
+                  download
+                  class="ml-1 text-sm text-seal underline decoration-seal/40 underline-offset-2 transition hover:text-seal-hover"
+                >
+                  {{ link.label }}
+                </a>
+                <span
+                  v-if="index !== step.links.length - 1"
+                  class="inline-block px-2"
+                >|</span>
+              </template>
+            </span>
+          </p>
         </li>
       </ol>
     </section>
@@ -110,7 +149,7 @@ const installSteps = [
             <h3 class="text-sm font-semibold text-ink">阅读</h3>
           </div>
           <p class="mt-3 text-sm leading-relaxed text-ink-soft">
-            页脚四等分：上一页 / 跳转 / 回书架 / 下一页；点「跳转」用数字键盘输入页码，
+            页脚动作按钮：上一页 / 跳转 / 回书架 / 下一页；点「跳转」用数字键盘输入页码，
             硬件上下键也能翻页。到卷首卷尾会停住，换卷请回书架打开下一卷。
           </p>
         </article>

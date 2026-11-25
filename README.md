@@ -220,5 +220,6 @@ npm run dev        # 首页 /#/ ，分割器 /#/tool
 
 ## 许可
 
-本仓库代码未声明许可证。第三方字体 Fusion Pixel 使用 SIL OFL 1.1，版权归
-其作者 TakWolf，不在本仓库分发；使用时请遵守上游许可证。
+本仓库使用 MIT 协议，全文见 [`LICENSE`](LICENSE)。第三方字体 Fusion Pixel 使用
+SIL OFL 1.1，版权归其作者 TakWolf，不在本仓库分发；使用时请遵守上游许可证。
+

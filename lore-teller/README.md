@@ -21,22 +21,23 @@ npm run build      # 产出 dist/
 
 ## 必需：准备预览字库
 
-预览会读取 `font-packer` 生成的字体 PDB。**这些文件不入库**，需要手动生成并复制：
+预览会读取 `font-packer` 生成的字体 PDB，站点的「下载」卡片还会把阅读器 PRC 一起
+发布。**这些文件不入库**，用一条命令从仓库里拷进来：
 
 ```powershell
 # 在仓库根目录
 node font-packer/src/pack-gb2312.mjs --level full
 node font-packer/src/pack-gb2312.mjs --level full --cell 12
-
-# 复制到 web app 的静态目录
-New-Item -ItemType Directory -Force lore-teller/public/fonts
-Copy-Item font-packer\out\LPF08F.pdb lore-teller\public\fonts\
-Copy-Item font-packer\out\LPF12F.pdb lore-teller\public\fonts\
+cd lore-teller
+npm run generate   # LPF08F/LPF12F -> public/fonts/，PRC -> public/
 ```
 
+- `scripts/copy-release.mjs` 会拷三样：两个字体 PDB 和
+  `reader/Release/LorePilotReader.prc`；缺失的源只警告，不中断构建；
 - 缺少字体时，预览会提示 “未找到 public/fonts/LPF08F.pdb”，生成 PDB 仍然可用；
 - 需要 8px 字体时用 `LPF08F.pdb`，12px 用 `LPF12F.pdb`；
-- `public/fonts/.gitkeep` 保留目录，`*.pdb` 已被 `.gitignore` 忽略。
+- `public/fonts/.gitkeep` 保留目录，`*.pdb` 与 `public/*.prc` 已被 `.gitignore`
+  忽略，它们只在构建时进入 `dist/`。
 
 ## 界面流程
 
