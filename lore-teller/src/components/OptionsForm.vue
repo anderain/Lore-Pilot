@@ -41,14 +41,14 @@ const cells = [
 </script>
 
 <template>
-  <div class="rounded-xl bg-white p-5 shadow-sm">
-    <div v-if="fileInfo" class="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-stone-600">
-      <span class="font-medium text-stone-900">{{ fileInfo.name }}</span>
+  <div class="rounded-xl border border-line bg-card p-5 shadow-paper">
+    <div v-if="fileInfo" class="mb-4 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-ink-soft">
+      <span class="font-medium text-ink">{{ fileInfo.name }}</span>
       <span>{{ (fileInfo.size / 1024).toFixed(1) }} KB</span>
       <label class="flex items-center gap-1">
         编码
         <select
-          class="rounded border border-stone-300 px-1 py-0.5"
+          class="rounded border border-line px-1 py-0.5"
           :value="fileInfo.encoding"
           @change="emit('encoding', ($event.target as HTMLSelectElement).value as TextEncoding)"
         >
@@ -60,24 +60,24 @@ const cells = [
 
     <div class="grid gap-4 sm:grid-cols-3">
       <label class="block">
-        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">Display name</span>
+        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-soft">Display name</span>
         <input
           :value="modelValue.displayName"
           maxlength="16"
           placeholder="MYBOOK"
           class="w-full rounded-lg border px-3 py-2 font-mono text-sm uppercase tracking-wider"
-          :class="nameOk ? 'border-stone-300' : 'border-red-400'"
+          :class="nameOk ? 'border-line' : 'border-red-400'"
           @input="onNameInput"
         />
-        <span class="mt-1 block text-xs" :class="nameOk ? 'text-stone-400' : 'text-red-600'">
+        <span class="mt-1 block text-xs" :class="nameOk ? 'text-ink-faint' : 'text-red-700'">
           1–16 位字母或数字
         </span>
       </label>
 
       <div>
-        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">每卷页数</span>
+        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-soft">每卷页数</span>
         <select
-          class="w-full rounded-lg border border-stone-300 px-3 py-2 text-sm"
+          class="w-full rounded-lg border border-line px-3 py-2 text-sm"
           :value="modelValue.pagesPerPart"
           @change="patch({ pagesPerPart: Number(($event.target as HTMLSelectElement).value) })"
         >
@@ -85,19 +85,19 @@ const cells = [
             {{ count }} 页 / 卷
           </option>
         </select>
-        <span class="mt-1 block text-xs text-stone-400">每卷可单独装进 Palm</span>
+        <span class="mt-1 block text-xs text-ink-faint">每卷可单独装进 Palm</span>
       </div>
 
       <div>
-        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-stone-500">字号</span>
+        <span class="mb-1 block text-xs font-medium uppercase tracking-wide text-ink-soft">字号</span>
         <div class="flex gap-2">
           <button
             v-for="cell in cells"
             :key="cell.value"
             class="flex-1 rounded-lg border px-2 py-2 text-sm"
             :class="modelValue.cell === cell.value
-              ? 'border-stone-900 bg-stone-900 text-white'
-              : 'border-stone-300 bg-white text-stone-700 hover:border-stone-500'"
+              ? 'border-seal bg-seal text-white'
+              : 'border-line bg-card text-ink-soft hover:border-ink-faint'"
             @click="patch({ cell: cell.value })"
           >
             {{ cell.label }}

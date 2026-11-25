@@ -1,18 +1,18 @@
-# lore-teller
+# Lore-Teller
 
 把 TXT 排版成 Palm OS 160×160 的书页，切成可单独安装的 `LPBK` 卷 PDB。
 
 - Vue 3 + TypeScript + Vite + Tailwind CSS
 - 全部处理在浏览器本地完成，不上传文件
-- 生成的文件用 `lore-pilot` 的阅读器读取
+- 生成的文件用 Lore-Pilot 的阅读器读取
 
 ## 运行
 
 ```powershell
 cd lore-teller
 npm install
-npm run dev        # http://localhost:5173
-npm test           # 18 个单元测试
+npm run dev        # http://localhost:5173 (首页) / #/tool (分割器)
+npm test           # 26 个单元测试
 npm run build      # 产出 dist/
 ```
 
@@ -73,15 +73,22 @@ y 159      进度条填充（白色，长度 = 160 × page / total）
 
 ```
 src/
+  App.vue       站点头部 + 导航 + RouterView
+  router/       vue-router（hash 模式：/#/ 与 /#/tool）
+  views/        HomeView（暂时留空）、ToolView（分割器）
   components/   FileDrop, OptionsForm, PartList, PreviewPanel
   lib/          decode, gb2312, toFullwidth, layout, paginate,
                 textPdb, split, glyphFont, render, convert
-  fonts/        hybrid6x8.ts（由脚本生成，入库）
+  fonts/        hybrid6x8.ts、uiGlyphs.ts（均由脚本生成，入库）
 scripts/
   gen-hybrid-font.mjs    从 reader/Src/FontHybird6x8.h 生成 6×8 表
+  gen-ui-glyphs.mjs      从 reader/Src/UiGlyphs.c 生成内置中文字形表
   inspect-text-pdb.mjs   独立解析并打印页表
   make-sample.ts         无浏览器生成样例 PDB
   preview-bmp.ts         把某一页渲染成 BMP，便于人工检查
+  show-footer.ts         终端打印阅读页页脚
+  show-shelf.ts          终端打印书架
+  show-goto.ts           终端打印跳页面板
 docs/text-pdb.md         格式说明（Palm 端实现依据）
 ```
 

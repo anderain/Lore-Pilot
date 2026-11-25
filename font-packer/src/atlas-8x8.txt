@@ -1,4 +1,4 @@
-// lore-pilot 8x8 atlas, MSB-first, '#' = ink, '.' = paper
+// Lore-Pilot 8x8 atlas, MSB-first, '#' = ink, '.' = paper
 // Each block: exactly 8 rows x 8 columns.
 // Codes must be contiguous 0..N-1 (one PDB record per glyph).
 //
@@ -10,7 +10,7 @@
 // Phase A uses code points that fit in 16 bits, because the text record stores
 // glyph indices and the test form only needs the sequence.
 
-@text 诸天气荡荡，我道日兴隆
+@text ???????????
 
 @book 0
 ........

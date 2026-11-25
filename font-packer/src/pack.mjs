@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// lore-pilot font packer: ASCII 8x8 art + pixel-font text -> Palm OS record DB
+// Lore-Pilot font packer: ASCII 8x8 art + pixel-font text -> Palm OS record DB
 //
 // Usage (from anywhere):
 //   node font-packer/src/pack.mjs
@@ -107,7 +107,7 @@ function parseArgs(argv) {
 }
 
 function printUsage() {
-  console.log(`lore-pilot font packer
+  console.log(`Lore-Pilot font packer
 
   node font-packer/src/pack.mjs [options]
 
@@ -592,7 +592,7 @@ function hex(buf) {
 
 function renderPreview(glyphs, glyphBuffers, checksum, phrases) {
   const out = [];
-  out.push(`lore-pilot 8x8 atlas: ${glyphs.length} glyphs, checksum 0x${checksum.toString(16).toUpperCase().padStart(4, '0')}`);
+  out.push(`Lore-Pilot 8x8 atlas: ${glyphs.length} glyphs, checksum 0x${checksum.toString(16).toUpperCase().padStart(4, '0')}`);
   out.push('');
   for (let i = 0; i < glyphs.length; i++) {
     out.push(`#${String(i).padStart(2, '0')} ${glyphs[i].name.padEnd(8)} ${hex(glyphBuffers[i])}`);
@@ -649,7 +649,7 @@ function renderSvg(glyphs, glyphBuffers, checksum) {
   const parts = [];
   parts.push(`<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">`);
   parts.push('<rect width="100%" height="100%" fill="#f4f1ea"/>');
-  parts.push(`<text x="${pad}" y="20" font-family="monospace" font-size="13" fill="#222">lore-pilot 8x8 atlas - ${glyphs.length} glyphs - checksum 0x${checksum.toString(16).toUpperCase().padStart(4, '0')}</text>`);
+  parts.push(`<text x="${pad}" y="20" font-family="monospace" font-size="13" fill="#222">Lore-Pilot 8x8 atlas - ${glyphs.length} glyphs - checksum 0x${checksum.toString(16).toUpperCase().padStart(4, '0')}</text>`);
 
   for (let i = 0; i < glyphs.length; i++) {
     const cx = pad + (i % cols) * cellW;

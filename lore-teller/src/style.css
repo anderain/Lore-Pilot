@@ -2,6 +2,26 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Paper-like reading surface: warm off-white, warm ink, seal-red accents. */
+:root {
+  --paper: #f7f2e7;
+  --paper-deep: #efe7d6;
+  --card: #fffcf4;
+  --ink: #3a352e;
+  --ink-soft: #6f6659;
+  --ink-faint: #9a9184;
+  --line: #e2d9c6;
+  --seal: #9c3d2e;
+  --seal-hover: #833225;
+  --seal-soft: #f4e4de;
+}
+
+html,
+body {
+  background-color: var(--paper);
+  color: var(--ink);
+}
+
 .pixelated {
   image-rendering: pixelated;
   image-rendering: crisp-edges;

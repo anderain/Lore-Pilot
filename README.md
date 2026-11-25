@@ -1,4 +1,4 @@
-# lore-pilot
+# Lore-Pilot
 
 中文阅读器可行性验证，目标设备是 **Palm OS 2.0 / Pilot Professional**
 （160×160 单色、1MB RAM、16MHz 68000）。仓库里包含三部分：
@@ -75,7 +75,7 @@ node font-packer/src/pack-gb2312.mjs --level full  --cell 12
 
 主界面标题为 **Bookshelf**，上下两块：
 
-- **书架** —— 扫描 `LPBK`/`LPRD` 书籍数据库（`lore-teller` 生成的
+- **书架** —— 扫描 `LPBK`/`LPRD` 书籍数据库（Lore-Teller 生成的
   `LPB_<NAME>_<NN>`），**每一卷占一行**：`BOOKA  2/7  101-200`，行内显示卷号、
   本卷全局页范围。`阅读` 只打开选中的这一卷，`删除` 也只删除这一卷，不需要同一本
   书的其他卷在场。
@@ -140,15 +140,17 @@ reader/
   Rsc/                    PilRC 资源、图标位图、生成的资源 ID 头
   Src/                    应用源码、字体列表与生成的字模头
   LorePilotReader.mcp     CodeWarrior 工程
-lore-teller/              Vue 3 网页：TXT → 卷书页 PDB
+lore-teller/              Vue 3 网页（Lore-Teller）：TXT → 卷书页 PDB
+  src/views/              HomeView（暂空）、ToolView（分割器）
+  src/router/             vue-router，hash 模式（/#/ 与 /#/tool）
   src/lib/                解码、GB2312、断行、分页、PDB 写入、渲染
   docs/text-pdb.md        LPBK 格式（Palm 端实现依据）
-  public/fonts/           预览字库（不入库，见 lore-teller/README）
+  public/fonts/           预览字库（不入库，见 Lore-Teller README）
 ```
 
-## 书页 PDB（lore-teller）
+## 书页 PDB（Lore-Teller）
 
-`lore-teller` 把 TXT 排版成 160×160 书页，按每卷固定页数输出
+Lore-Teller 把 TXT 排版成 160×160 书页，按每卷固定页数输出
 `LPB_<NAME>_<NN>.pdb`（type `LPBK`，creator `LPRD`）。每页一条记录，行偏移表在
 记录内，翻页即记录跳转；卷头带 `partIndex / partCount / firstPage / totalPages`，
 所以页码与进度条按全书连续。**每一卷都是独立文件**：可以只装一卷、只读一卷，
@@ -161,7 +163,7 @@ node ../font-packer/src/pack-gb2312.mjs --level full
 node ../font-packer/src/pack-gb2312.mjs --level full --cell 12
 Copy-Item ..\font-packer\out\LPF08F.pdb public\fonts\
 Copy-Item ..\font-packer\out\LPF12F.pdb public\fonts\
-npm run dev
+npm run dev        # 首页 /#/ ，分割器 /#/tool
 ```
 
 格式与字段见 `lore-teller/docs/text-pdb.md`。Palm 端读取书页 PDB 是下一步。

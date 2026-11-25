@@ -1,6 +1,6 @@
 # text PDB format (`LPBK`)
 
-Produced by `lore-teller`, consumed by the Palm reader. All integers are
+Produced by Lore-Teller, consumed by the Palm reader. All integers are
 big-endian. The file name and the Palm database name are identical:
 `LPB_<NAME>_<NN>.pdb`, where `<NN>` is the 1-based part number (max 99).
 

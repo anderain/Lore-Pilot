@@ -86,15 +86,15 @@ Shelf.c and GotoForm.c (plus their .h files) to the CodeWarrior project.
 `reader/build.ps1` builds the same sources from the command line without
 touching the .mcp.
 
-Main form ("Bookshelf"): a 书架 list where every LPBK volume is its own row,
-with 阅读 / 删除 buttons, and a 字体 list of installed GLYF/LPRD fonts with its
-own 删除 button.  A volume is standalone: 阅读 opens just that file and 删除
+Main form ("Bookshelf"): a ?? list where every LPBK volume is its own row,
+with ?? / ?? buttons, and a ?? list of installed GLYF/LPRD fonts with its
+own ?? button.  A volume is standalone: ?? opens just that file and ??
 deletes just that file.  The section labels and buttons are self-drawn with the
 built-in glyphs, because the stock 2.0 button widget can only draw system-font
 text.  Tests live in the menu: Test > Glyph 8x8 / GB2312 8x8 / GB2312 12x12;
 Options > Refresh Lists / About.
 
-Reader layout (matches lore-teller/src/lib/render.ts):
+Reader layout (matches Lore-Teller src/lib/render.ts):
 
   y 0..7      black band, white 6x8 ASCII: book name + global page/total
   y 8..149    white body, glyph font, vertically centred
@@ -105,7 +105,7 @@ Reader layout (matches lore-teller/src/lib/render.ts):
 
 The footer labels come from the built-in glyph table in UiGlyphs.c, so they
 render even when no glyph font database is installed.  UiGlyphs.c is the source
-of truth: lore-teller/scripts/gen-ui-glyphs.mjs regenerates the web preview's
+of truth: Lore-Teller scripts/gen-ui-glyphs.mjs regenerates the web preview's
 copy from it.
 
 The bottom 12 rows are split into four equal 40px touch columns: previous page,

@@ -1,135 +1,41 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import FileDrop from './components/FileDrop.vue';
-import OptionsForm, { type Options } from './components/OptionsForm.vue';
-import PartList from './components/PartList.vue';
-import PreviewPanel from './components/PreviewPanel.vue';
-import { convertText, displayNameFromFile, type ConvertResult } from './lib/convert';
-import { decodeAs, decodeText, type TextEncoding } from './lib/decode';
-import type { PartResult } from './lib/split';
+import { RouterLink, RouterView, useRoute } from 'vue-router';
+import { computed } from 'vue';
 
-const fileInfo = ref<{ name: string; size: number; encoding: TextEncoding } | null>(null);
-const buffer = ref<ArrayBuffer | null>(null);
-const options = ref<Options>({
-  displayName: 'BOOK',
-  cell: 8,
-  pagesPerPart: 100,
-  encoding: 'utf-8',
-});
-const result = ref<ConvertResult | null>(null);
-const previewPart = ref<PartResult | null>(null);
-const busy = ref(false);
-const error = ref('');
+const route = useRoute();
 
-const canGenerate = computed(
-  () => buffer.value !== null && /^[A-Za-z0-9]{1,16}$/.test(options.value.displayName) && !busy.value,
-);
+const nav = [
+  { name: '首页', to: '/' },
+  { name: '工具', to: '/tool' },
+] as const;
 
-function onFile(payload: { file: File; buffer: ArrayBuffer }) {
-  buffer.value = payload.buffer;
-  const decoded = decodeText(payload.buffer);
-  options.value = {
-    ...options.value,
-    displayName: displayNameFromFile(payload.file.name),
-    encoding: decoded.encoding,
-  };
-  fileInfo.value = {
-    name: payload.file.name,
-    size: payload.buffer.byteLength,
-    encoding: decoded.encoding,
-  };
-  result.value = null;
-  previewPart.value = null;
-  error.value = '';
-}
-
-function onEncoding(encoding: TextEncoding) {
-  if (!buffer.value || !fileInfo.value) return;
-  fileInfo.value = { ...fileInfo.value, encoding };
-  options.value = { ...options.value, encoding };
-  // Show what the chosen encoding yields, even before generating.
-  void decodeAs(buffer.value, encoding);
-}
-
-async function generate() {
-  if (!buffer.value) return;
-  busy.value = true;
-  error.value = '';
-  try {
-    const converted = convertText(buffer.value, {
-      displayName: options.value.displayName,
-      cell: options.value.cell,
-      pagesPerPart: options.value.pagesPerPart,
-      encoding: options.value.encoding,
-    });
-    result.value = converted;
-    previewPart.value = converted.parts[0] ?? null;
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : String(e);
-    result.value = null;
-    previewPart.value = null;
-  } finally {
-    busy.value = false;
-  }
-}
+const currentPath = computed(() => route.path);
 </script>
 
 <template>
-  <main class="mx-auto max-w-5xl space-y-6 px-4 py-8">
-    <header>
-      <h1 class="text-2xl font-semibold tracking-tight">lore-teller</h1>
-      <p class="mt-1 text-sm text-stone-600">
-        把 TXT 排版成 Palm OS 160×160 书页，切成可单独安装的卷 PDB。
-      </p>
+  <div class="min-h-screen bg-paper text-ink antialiased">
+    <header class="border-b border-line">
+      <div class="mx-auto flex max-w-5xl flex-wrap items-baseline justify-between gap-3 px-4 py-4">
+        <RouterLink to="/" class="text-lg font-semibold tracking-tight text-ink hover:text-seal">
+          Lore-Teller
+        </RouterLink>
+
+        <nav class="flex items-center gap-1 text-sm">
+          <RouterLink
+            v-for="item in nav"
+            :key="item.to"
+            :to="item.to"
+            class="rounded px-2.5 py-1 transition"
+            :class="currentPath === item.to
+              ? 'bg-seal-soft font-medium text-seal'
+              : 'text-ink-soft hover:bg-paper-deep hover:text-ink'"
+          >
+            {{ item.name }}
+          </RouterLink>
+        </nav>
+      </div>
     </header>
 
-    <FileDrop @file="onFile" />
-
-    <OptionsForm
-      v-model="options"
-      :file-info="fileInfo"
-      @encoding="onEncoding"
-    />
-
-    <div class="flex flex-wrap items-center gap-3">
-      <button
-        class="rounded-lg bg-stone-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-stone-700 disabled:opacity-40"
-        :disabled="!canGenerate"
-        @click="generate"
-      >
-        {{ busy ? '生成中…' : '生成 PDB' }}
-      </button>
-      <p v-if="error" class="text-sm text-red-600">{{ error }}</p>
-      <p v-else-if="result" class="text-sm text-stone-600">
-        {{ result.charCount }} 字 · {{ result.lineCount }} 行 · {{ result.totalPages }} 页 ·
-        {{ result.parts.length }} 卷 ·
-        总 {{ (result.totalBytes / 1024).toFixed(1) }} KB
-      </p>
-    </div>
-
-    <ul v-if="result && result.warnings.length" class="space-y-1 rounded-xl bg-amber-50 p-4 text-sm text-amber-800">
-      <li v-for="warning in result.warnings" :key="warning">• {{ warning }}</li>
-    </ul>
-
-    <div v-if="result" class="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2">
-      <PartList
-        :parts="result.parts"
-        :total-pages="result.totalPages"
-        @preview="(part) => (previewPart = part)"
-      />
-
-      <PreviewPanel
-        v-if="previewPart"
-        :result="result"
-        :part="previewPart"
-        :display-name="result.displayName"
-      />
-    </div>
-
-    <footer class="pt-4 text-xs text-stone-400">
-      版面：160×160，顶部 8 行黑底显示名称与页码，正文 {{ result?.charsPerLine ?? 20 }} 字/行、
-      {{ result?.linesPerPage ?? 17 }} 行/页并垂直居中，顶部底部反色，
-      最底 2 行是进度条，底部 PREV / MENU / NEXT。
-    </footer>
-  </main>
+    <RouterView />
+  </div>
 </template>

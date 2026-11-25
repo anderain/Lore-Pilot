@@ -28,42 +28,42 @@ function downloadAll(parts: PartResult[]) {
 </script>
 
 <template>
-  <div class="flex h-full flex-col rounded-xl bg-white p-5 shadow-sm">
+  <div class="flex h-full flex-col rounded-xl border border-line bg-card p-5 shadow-paper">
     <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-      <h2 class="text-sm font-semibold uppercase tracking-wide text-stone-500">
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-soft">
         卷（{{ parts.length }} 个，共 {{ totalPages }} 页）
       </h2>
       <button
         v-if="parts.length > 1"
-        class="rounded-lg border border-stone-300 px-3 py-1.5 text-sm hover:border-stone-500"
+        class="rounded-lg border border-line px-3 py-1.5 text-sm hover:border-ink-faint"
         @click="downloadAll(parts)"
       >
         下载全部
       </button>
     </div>
 
-    <ul class="divide-y divide-stone-100">
+    <ul class="divide-y divide-line">
       <li v-for="part in parts" :key="part.fileName" class="py-2.5">
-        <div class="font-mono text-sm text-stone-900">{{ part.fileName }}</div>
-        <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-stone-500">
-          <span class="rounded bg-stone-100 px-1.5 py-0.5 font-medium text-stone-700">
+        <div class="font-mono text-sm text-ink">{{ part.fileName }}</div>
+        <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-soft">
+          <span class="rounded bg-paper-deep px-1.5 py-0.5 font-medium text-ink-soft">
             {{ part.partIndex + 1 }}/{{ part.partCount }} 卷
           </span>
           <span>第 {{ part.firstPage }}–{{ part.firstPage + part.pageCount - 1 }} 页</span>
           <span>{{ (part.size / 1024).toFixed(1) }} KB</span>
-          <span v-if="part.replaced.length" class="text-amber-600">
+          <span v-if="part.replaced.length" class="text-seal">
             {{ part.replaced.length }} 个替代字符
           </span>
         </div>
         <div class="mt-1.5 flex gap-2">
           <button
-            class="rounded-lg border border-stone-300 px-3 py-1 text-sm hover:border-stone-500"
+            class="rounded-lg border border-line px-3 py-1 text-sm hover:border-ink-faint"
             @click="emit('preview', part)"
           >
             预览
           </button>
           <button
-            class="rounded-lg bg-stone-900 px-3 py-1 text-sm text-white hover:bg-stone-700"
+            class="rounded-lg bg-seal px-3 py-1 text-sm text-white transition hover:bg-seal-hover"
             @click="download(part)"
           >
             下载

@@ -125,36 +125,36 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="flex h-full flex-col rounded-xl bg-white p-5 shadow-sm">
+  <div class="flex h-full flex-col rounded-xl border border-line bg-card p-5 shadow-paper">
     <div class="mb-3 flex items-center justify-between">
-      <h2 class="text-sm font-semibold uppercase tracking-wide text-stone-500">预览 160×160</h2>
-      <span v-if="part" class="font-mono text-xs text-stone-500">{{ part.fileName }}</span>
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-ink-soft">预览 160×160</h2>
+      <span v-if="part" class="font-mono text-xs text-ink-soft">{{ part.fileName }}</span>
     </div>
 
-    <p v-if="fontsLoading" class="mb-2 text-xs text-stone-500">正在加载预览字库…</p>
-    <p v-else-if="!fonts[result.cell]" class="mb-2 rounded bg-amber-50 p-2 text-xs text-amber-700">
+    <p v-if="fontsLoading" class="mb-2 text-xs text-ink-soft">正在加载预览字库…</p>
+    <p v-else-if="!fonts[result.cell]" class="mb-2 rounded bg-seal-soft p-2 text-xs text-seal">
       未找到 <code>public/fonts/LPF{{ result.cell === 8 ? '08' : '12' }}F.pdb</code>，预览无法显示正文。
       请按 README 生成并复制字体文件。
     </p>
 
     <canvas
       ref="canvas"
-      class="pixelated mx-auto block h-auto w-full rounded border border-stone-300 bg-white"
+      class="pixelated mx-auto block h-auto w-full rounded border border-line bg-card"
     ></canvas>
 
     <div class="mt-3 flex items-center justify-between text-sm">
       <button
-        class="rounded-lg border border-stone-300 px-3 py-1 disabled:opacity-40"
+        class="rounded-lg border border-line px-3 py-1 disabled:opacity-40"
         :disabled="pageIndex === 0"
         @click="prev"
       >
         PREV
       </button>
-      <span class="font-mono text-xs text-stone-600">
+      <span class="font-mono text-xs text-ink-soft">
         {{ globalPage }} / {{ totalPages }}　本卷 {{ pageIndex + 1 }}/{{ pages.length }}
       </span>
       <button
-        class="rounded-lg border border-stone-300 px-3 py-1 disabled:opacity-40"
+        class="rounded-lg border border-line px-3 py-1 disabled:opacity-40"
         :disabled="pageIndex + 1 >= pages.length"
         @click="next"
       >
