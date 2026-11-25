@@ -31,19 +31,22 @@ const installSteps = [
 <template>
   <main class="mx-auto max-w-5xl space-y-14 px-4 py-10">
     <!-- Hero -->
-    <section class="space-y-5">
-      <h1 class="max-w-2xl text-3xl font-semibold leading-tight tracking-tight">
-        一个为 Palm OS 2.0 打造的中文阅读器实验项目
-      </h1>
-      <p class="max-w-2xl text-base leading-relaxed text-ink-soft">
-        160×160 单色屏、1 MB 内存，更高版本的 Palm 也能运行。
+    <section class="space-y-3">
+      <h1 class="text-4xl font-semibold tracking-tight">Lore-Pilot</h1>
+      <p class="max-w-2xl text-lg text-ink-soft">
+        为 Palm OS 2.0 打造的中文阅读器实验项目
       </p>
-      <RouterLink
-        to="/tool"
-        class="inline-block rounded-lg bg-seal px-5 py-2.5 text-sm font-medium text-white transition hover:bg-seal-hover"
-      >
-        打开分卷工具 →
-      </RouterLink>
+      <p class="max-w-2xl text-sm leading-relaxed text-ink-faint">
+        目标在 160×160 单色屏、1 MB 内存的 Palm 上运行，更高版本也可用。
+      </p>
+      <div class="pt-2">
+        <RouterLink
+          to="/tool"
+          class="inline-block rounded-lg bg-seal px-5 py-2.5 text-sm font-medium text-white transition hover:bg-seal-hover"
+        >
+          打开分卷工具 →
+        </RouterLink>
+      </div>
     </section>
 
     <!-- Screenshots -->

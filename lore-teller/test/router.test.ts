@@ -46,7 +46,10 @@ describe('router shell', () => {
   it('describes the project on the home page', async () => {
     const wrapper = await mountAt('/');
     const text = wrapper.text();
-    expect(text).toContain('一个为 Palm OS 2.0 打造的中文阅读器实验项目');
+    // Hero: project name, one-line summary, then the target hardware.
+    expect(wrapper.find('h1').text()).toBe('Lore-Pilot');
+    expect(text).toContain('为 Palm OS 2.0 打造的中文阅读器实验项目');
+    expect(text).toContain('160×160 单色屏');
     // Screenshot captions and both entry points to the tool.
     for (const label of ['实机', '书架', '阅读页', '跳转']) {
       expect(text).toContain(label);
