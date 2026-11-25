@@ -46,3 +46,6 @@ lore-teller/public/*.prc
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# ---- wrangler ----
+lore-teller/.wrangler/
