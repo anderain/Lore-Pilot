@@ -25,6 +25,7 @@
 #include "ReaderForm.h"
 #include "GotoForm.h"
 #include "Shelf.h"
+#include "ScreenBuf.h"
 
 /*********************************************************************
  * Internal Constants
@@ -238,6 +239,9 @@ static Err AppStart(void)
 
 static void AppStop(void)
 {
+    /* The reader releases its buffer on close, but if the app is killed from
+     * a form that never saw frmCloseEvent this is the last chance. */
+    ScreenBufFree();
     FrmCloseAllForms();
 }
 

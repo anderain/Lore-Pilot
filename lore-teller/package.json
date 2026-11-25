@@ -8,6 +8,8 @@
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "check:screenbuf": "npx tsx scripts/check-screenbuf.ts",
+    "generate": "node scripts/copy-release.mjs",
     "gen:font": "node scripts/gen-hybrid-font.mjs",
     "inspect:pdb": "node scripts/inspect-text-pdb.mjs"
   },

@@ -99,6 +99,8 @@ scripts/
   make-sample.ts         无浏览器生成样例 PDB
   preview-bmp.ts         把某一页渲染成 BMP，便于人工检查
   bench-convert.ts       大文件转换耗时与阶段分布
+  check-palm-reader.ts   逐像素比对 Palm 版面与网页预览
+  check-screenbuf.ts     校验帧缓冲的字节位移与裁剪逻辑（fuzz）
   show-footer.ts         终端打印阅读页页脚
   show-shelf.ts          终端打印书架
   show-goto.ts           终端打印跳页面板
@@ -120,4 +122,10 @@ node scripts/inspect-text-pdb.mjs out/LPB_BOOK_01.pdb
 
 # 渲染第 1 页为 4 倍 BMP
 npx tsx scripts/preview-bmp.ts out/LPB_BOOK_01.pdb 0 page1.bmp
+
+# 逐像素比对设备版面与网页预览
+npx tsx scripts/check-palm-reader.ts out/LPB_BOOK_01.pdb public/fonts/LPF08F.pdb 0
+
+# 校验 reader/Src/ScreenBuf.c 的 packed 像素算术
+npx tsx scripts/check-screenbuf.ts
 ```

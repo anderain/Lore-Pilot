@@ -1,5 +1,7 @@
 # Lore-Pilot
 
+项目网站：<https://lorepilot.siberian.moe>
+
 An experimental Chinese reader for **Palm OS 2.0** (Pilot Professional: 160x160
 monochrome, 1 MB RAM, 16 MHz 68000). Higher Palm OS versions run it too. Text is
 laid out into 160x160 pages and split into standalone volumes, so a 1 MB device
@@ -126,6 +128,16 @@ y 159       进度条填充（长度 = 160 × 页码 / 总页数）
 **不依赖任何已安装字库**；`lore-teller/scripts/gen-ui-glyphs.mjs` 从该 .c 生成
 web 预览用的同一份数据，两边不会漂移。
 
+阅读页（以及两个测试页）先把整帧画进一块内存缓冲，再用 `WinDrawBitmap` 一次贴到
+屏幕（`reader/Src/ScreenBuf.c`），所以**翻页没有闪烁**：旧实现先擦全屏再逐笔重画，
+中间会露出空白帧。字形以 packed 1bpp 直接写进缓冲（8×8 一个字 8 次字节写，旧实现
+约 10 次 `WinDrawLine`），一次翻页的绘制耗时从数十毫秒降到数毫秒。
+
+> 缓冲不用 `BmpCreate` + `BmpGetBits`：后者是 Palm OS 3.5 的 trap。这里自己写
+> 16 字节的 version-0 bitmap 头，像素紧跟其后，只用 1.0 的 `WinDrawBitmap`
+> （`0xA226`）。缓冲分配失败（堆太满）时所有绘制函数自动退回 `WinDrawLine` 直绘，
+> 版式完全一样，只是慢一些。
+
 底部触控区横向四等分（每段 40px）：上一页 / 跳转 / 回书架 / 下一页。
 「跳转」打开一个**全自绘的数字键盘面板**：顶部输入框显示已输入数字与本卷可跳
 范围（如 `599-999`），下面是 `7 8 9 / 4 5 6 / 1 2 3 / 0 <-` 与「跳转」「取消」。
@@ -141,12 +153,13 @@ web 预览用的同一份数据，两边不会漂移。
 所有测试入口在菜单里：
 
 - **Test → Glyph 8x8** — 21 个 8×8 字形（11 个手绘图形 + 10 个汉字），逐字节
-  比对 PDB 与内置答案，1×/2× 对照，另有奇数偏移与裁切测试；
+  比对 PDB 与内置答案，另有奇数偏移与裁切测试（专门用来验证缓冲的字节位移与裁剪）；
 - **Test → GB2312 8x8** — 《千字文》1250 单元（1000 汉字 + 250 标点）、32 页、
-  每页 40 单元，`Prev`/`Next` 翻页，1× 与 2× 同屏；
-- **Test → GB2312 12x12** — 同样的 32 页千字文，12×12 字体，1× 13 字/行、
-  2× 6 字/行；
+  每页 40 单元，`Prev`/`Next` 翻页；
+- **Test → GB2312 12x12** — 同样的 32 页千字文，12×12 字体，13 字/行；
 - **Options → Refresh Lists / About**。
+
+所有测试页都是 1×（放大只用于对照，已移除）。
 
 状态行会显示数据库名、字号、字形数、页数、抽样比对结果与当前页范围；缺库时
 提示 `NO FONT 12x12` 而不崩溃。
@@ -165,6 +178,7 @@ font-packer/
 reader/
   Rsc/                    PilRC 资源、图标位图、生成的资源 ID 头
   Src/                    应用源码、字体列表与生成的字模头
+                          ScreenBuf.c 是全应用共用的 1bpp 帧缓冲
   LorePilotReader.mcp     CodeWarrior 工程
 lore-teller/              Vue 3 网页（Lore-Teller）：TXT → 卷书页 PDB
   src/views/              HomeView（暂空）、ToolView（分割器）
@@ -196,7 +210,8 @@ npm run dev        # 首页 /#/ ，分割器 /#/tool
 
 ## 已知限制
 
-- 8×8 中文在 1× 下偏小，2× 是主要阅读视图；12×12 的 1× 已经清楚可读；
+- 8×8 中文在 160×160 屏上一行 20 字、一页 17 行，单字较小；12×12 每行 13 字、
+  每页 11 行，更好认。两种字号都是 1×，不做放大；
 - 一级字库（`basic`）不覆盖二级汉字，打包脚本会把文本里超出范围的字放进
   “extras” 记录，阅读器仍能显示，但单库不再“完整”；
 - 目标设备没有 Unicode，正文按 GB2312/GBK 双字节存储；

@@ -4,26 +4,35 @@
  * GB2312 paged font + Qianziwen paging test for LorePilotReader.
  *
  * Target: Palm OS 2.0 (Pilot Professional, 160x160, 1MB).
- * Uses only Palm OS 1.0 APIs through GlyphFont.c.
  *
- * One page shows 40 GB2312 units (8 four-character lines with punctuation),
- * so page turns land on sentence boundaries. Layout adapts to the cell size:
- *   8x8 : 1x 20 per line x 2 lines, 2x 10 per line x 4 lines
- *   12x12: 1x 13 per line x 4 lines, 2x 6 per line x 2 lines (12 of 40 shown)
+ * One page shows 40 GB2312 units, so page turns land on sentence boundaries.
+ * The glyph block is drawn at 1x only: the old 2x copy existed to exercise the
+ * scaled run drawing, which the reader never used. Glyphs go into the frame
+ * buffer and reach the screen with one flush; the status lines are drawn with
+ * the system font on top of it.
+ *
+ *   8x8 : 20 per line x 2 lines
+ *   12x12: 13 per line x 4 lines (40th unit on its own line)
  */
 
 #include <PalmOS.h>
 
 #include "GbTest.h"
 #include "GlyphFont.h"
+#include "ScreenBuf.h"
 #include "LorePilotReader_Rsc.h"
 #include "GbSamples.h"
 #include "GbSamples12.h"
 #include "GbText.h"
 
-#define kGbTestWidth  160
-#define kGbTestHeight 160
 #define kGbCharsPerPage 40
+
+/* Body area above the form's buttons (they start at y 146). The status lines
+ * use y 12, 21 and 30 and the system font is ~11 px tall, so the glyph block
+ * starts at 44 and the info line sits at 132 (11 px tall, clears y 146). */
+#define kGbTestBodyH    146
+#define kGbTestInfoY    132
+#define kGbTestBlockTop 44
 
 static GlyphFont gGbFont;
 static Boolean   gGbFontReady = false;
@@ -68,17 +77,6 @@ static void GbTestAppendHex4(Char *dst, UInt16 value)
 static void GbTestDrawText(Int16 x, Int16 y, const Char *s)
 {
     WinDrawChars(s, StrLen(s), x, y);
-}
-
-static void GbTestClearBody(void)
-{
-    RectangleType r;
-
-    r.topLeft.x = 0;
-    r.topLeft.y = 0;
-    r.extent.x = kGbTestWidth;
-    r.extent.y = 144;
-    WinEraseRectangle(&r, 0);
 }
 
 static UInt16 GbTestCharCount(void)
@@ -164,38 +162,36 @@ static void GbTestLoad(void)
 
 /*------------------------------------------------------------------ layout*/
 
+/* Filled from the font so drawing and hit testing cannot drift apart. */
 typedef struct GbLayoutType {
     UInt16 perLine;
     UInt16 lineCount;
     Int16  y;
-    UInt8  scale;
     UInt16 count;
 } GbLayout;
 
-static void GbTestLayout(GbLayout *l1, GbLayout *l2)
+static void GbTestLayout(GbLayout *l)
 {
     if (gGbFontReady && gGbFont.cellW == 12) {
-        /* 40 units: 13+13+13+1 at 1x (y 36..84), then 12 units at 2x
-           (6 per line, 24px tall lines, y 84..132). */
-        l1->perLine = 13; l1->lineCount = 4; l1->y = 36; l1->scale = 1; l1->count = 40;
-        l2->perLine = 6;  l2->lineCount = 2; l2->y = 84; l2->scale = 2; l2->count = 12;
+        l->perLine = 13;
+        l->lineCount = 4;
     } else {
-        l1->perLine = 20; l1->lineCount = 2; l1->y = 39; l1->scale = 1; l1->count = 40;
-        l2->perLine = 10; l2->lineCount = 4; l2->y = 58; l2->scale = 2; l2->count = 40;
+        l->perLine = 20;
+        l->lineCount = 2;
     }
-}
-
-/* Info line sits just above the button row; 12x12 blocks are taller. */
-static Int16 GbTestInfoY(void)
-{
-    return 136;
+    l->y = kGbTestBlockTop;
+    l->count = kGbCharsPerPage;
 }
 
 /*------------------------------------------------------------------ draw*/
 
+/* Status lines are ASCII with the system font; they are drawn after the
+ * frame buffer flush so they land on top of the composed page. */
 static void GbTestDrawStatus(void)
 {
     Char line[80];
+
+    FntSetFont(stdFont);
 
     line[0] = '\0';
     if (gGbFontReady) {
@@ -258,6 +254,8 @@ static void GbTestDrawInfo(void)
     UInt16 i;
     UInt16 bytes = 8;
 
+    FntSetFont(stdFont);
+
     line[0] = '\0';
     if (gGbSelected >= 0 && (UInt16)gGbSelected < GbTestCharCount()) {
         code = GbTestCodeAt((UInt16)gGbSelected);
@@ -275,7 +273,7 @@ static void GbTestDrawInfo(void)
     } else {
         GbTestAppendStr(line, "tap a glyph to inspect");
     }
-    GbTestDrawText(0, GbTestInfoY(), line);
+    GbTestDrawText(0, kGbTestInfoY, line);
 }
 
 static void GbTestDrawBlock(const GbLayout *layout)
@@ -299,29 +297,29 @@ static void GbTestDrawBlock(const GbLayout *layout)
         if (index >= total) break;
         code = GbTestCodeAt(index);
         if (GlyphFontGet(&gGbFont, code, rows)) {
-            Int16 x = (Int16)((i % layout->perLine) * cellW * layout->scale);
-            Int16 y = (Int16)(layout->y + (i / layout->perLine) * cellH * layout->scale);
-            GlyphFontDrawGlyph(&gGbFont, x, y, rows, layout->scale);
+            Int16 x = (Int16)((i % layout->perLine) * cellW);
+            Int16 y = (Int16)(layout->y + (i / layout->perLine) * cellH);
+            GlyphFontDrawGlyph(&gGbFont, x, y, rows);
         }
     }
 }
 
 static void GbTestDrawAll(void)
 {
-    GbLayout l1, l2;
+    GbLayout layout;
 
-    FntSetFont(stdFont);
-    GbTestClearBody();
+    (void)ScreenBufAlloc(kGbTestBodyH);
+    ScreenBufClearRect(0, kGbTestBodyH);
 
-    GbTestDrawText(0, 2, "GB2312 Test");
-    GbTestDrawStatus();
-
-    GbTestLayout(&l1, &l2);
+    GbTestLayout(&layout);
     if (gGbFontReady) {
-        GbTestDrawBlock(&l1);
-        GbTestDrawBlock(&l2);
+        GbTestDrawBlock(&layout);
     }
 
+    /* One flush, then the ASCII status on top of the composed page. */
+    ScreenBufFlush();
+
+    GbTestDrawStatus();
     GbTestDrawInfo();
 }
 
@@ -330,36 +328,33 @@ static void GbTestDrawAll(void)
 /* Find the glyph under a tap, using the same layout as drawing. */
 static Int16 GbTestHitTest(Int16 x, Int16 y)
 {
-    GbLayout l1, l2;
-    GbLayout *blocks[2];
-    UInt16 b;
-
-    GbTestLayout(&l1, &l2);
-    blocks[0] = &l1;
-    blocks[1] = &l2;
+    GbLayout layout;
+    UInt16 cellW;
+    UInt16 cellH;
+    UInt16 rows;
+    Int16 blockW;
+    Int16 blockH;
 
     if (!gGbFontReady) return -1;
 
-    for (b = 0; b < 2; b++) {
-        GbLayout *l = blocks[b];
-        UInt16 cellW = gGbFont.cellW;
-        UInt16 cellH = gGbFont.cellH;
-        UInt16 rows = (UInt16)((l->count + l->perLine - 1) / l->perLine);
-        Int16 blockW = (Int16)(l->perLine * cellW * l->scale);
-        Int16 blockH = (Int16)(rows * cellH * l->scale);
-        Int16 top = l->y;
+    GbTestLayout(&layout);
 
-        if (x >= 0 && x < blockW && y >= top && y < (Int16)(top + blockH)) {
-            UInt16 col = (UInt16)(x / (cellW * l->scale));
-            UInt16 row = (UInt16)((y - top) / (cellH * l->scale));
-            UInt16 index = (UInt16)(row * l->perLine + col);
-            UInt16 start = (UInt16)(gGbPage * kGbCharsPerPage);
+    cellW = gGbFont.cellW;
+    cellH = gGbFont.cellH;
+    rows = (UInt16)((layout.count + layout.perLine - 1) / layout.perLine);
+    blockW = (Int16)(layout.perLine * cellW);
+    blockH = (Int16)(rows * cellH);
 
-            if (col < l->perLine && index < l->count &&
-                (UInt16)(start + index) < GbTestCharCount()) {
-                return (Int16)(start + index);
-            }
-            return -1;
+    if (x >= 0 && x < blockW && y >= layout.y &&
+        y < (Int16)(layout.y + blockH)) {
+        UInt16 col = (UInt16)(x / cellW);
+        UInt16 row = (UInt16)((y - layout.y) / cellH);
+        UInt16 index = (UInt16)(row * layout.perLine + col);
+        UInt16 start = (UInt16)(gGbPage * kGbCharsPerPage);
+
+        if (col < layout.perLine && index < layout.count &&
+            (UInt16)(start + index) < GbTestCharCount()) {
+            return (Int16)(start + index);
         }
     }
     return -1;
@@ -388,6 +383,7 @@ Boolean GbTestFormHandleEvent(EventType *eventP)
                 GlyphFontClose(&gGbFont);
                 gGbFontReady = false;
             }
+            ScreenBufFree();
             handled = true;
             break;
 
@@ -422,6 +418,7 @@ Boolean GbTestFormHandleEvent(EventType *eventP)
                         GlyphFontClose(&gGbFont);
                         gGbFontReady = false;
                     }
+                    ScreenBufFree();
                     FrmGotoForm(MainForm);
                     handled = true;
                     break;

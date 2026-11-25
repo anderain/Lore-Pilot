@@ -1,99 +1,33 @@
 /*
  * UiFont.c
  *
- * Renders the 6x8 FontHybird glyphs as horizontal runs with WinDrawLine /
- * WinEraseLine, so it works on Palm OS 2.0 (1.0 trap range only).
+ * Renders the 6x8 FontHybird glyphs and the built-in 8x8 Chinese glyphs.
+ *
+ * Both go through ScreenBuf, so they are written as packed pixels into the
+ * frame buffer and reach the screen with one flush. On a heap too full for
+ * the buffer ScreenBuf falls back to horizontal runs of WinDrawLine, which
+ * looks identical but costs one trap per run.
  */
 
 #include <PalmOS.h>
 
 #include "UiFont.h"
+#include "ScreenBuf.h"
 #include "FontHybird6x8.h"
 
 void UiFontDrawBitmap8(Int16 x, Int16 y, const UInt8 *rows, Boolean inverse)
 {
-    UInt16 row;
-
     if (rows == 0) return;
 
-    for (row = 0; row < 8; row++) {
-        UInt8 bits = rows[row];
-        Int16 sy = (Int16)(y + (Int16)row);
-        UInt16 c;
-
-        if (sy < 0 || sy >= kUiFontScreenH) continue;
-
-        c = 0;
-        while (c < 8) {
-            UInt16 start;
-            Int16 x0;
-            Int16 x1;
-
-            if ((bits & (UInt8)(0x80 >> c)) == 0) {
-                c++;
-                continue;
-            }
-
-            start = c;
-            while (c < 8 && (bits & (UInt8)(0x80 >> c)) != 0) {
-                c++;
-            }
-
-            x0 = (Int16)(x + (Int16)start);
-            x1 = (Int16)(x + (Int16)c - 1);
-
-            if (x1 < 0 || x0 >= kUiFontScreenW) continue;
-            if (x0 < 0) x0 = 0;
-            if (x1 >= kUiFontScreenW) x1 = (Int16)(kUiFontScreenW - 1);
-
-            if (inverse) {
-                WinEraseLine(x0, sy, x1, sy);
-            } else {
-                WinDrawLine(x0, sy, x1, sy);
-            }
-        }
-    }
+    ScreenBufBits(x, y, rows, 8, 8, 1,
+                  inverse ? kScreenInkWhite : kScreenInkBlack);
 }
 
 void UiFontDrawBitmap8Gray(Int16 x, Int16 y, const UInt8 *rows)
 {
-    UInt16 row;
-
     if (rows == 0) return;
 
-    for (row = 0; row < 8; row++) {
-        UInt8 bits = rows[row];
-        Int16 sy = (Int16)(y + (Int16)row);
-        UInt16 c;
-
-        if (sy < 0 || sy >= kUiFontScreenH) continue;
-
-        c = 0;
-        while (c < 8) {
-            UInt16 start;
-            Int16 x0;
-            Int16 x1;
-
-            if ((bits & (UInt8)(0x80 >> c)) == 0) {
-                c++;
-                continue;
-            }
-
-            start = c;
-            while (c < 8 && (bits & (UInt8)(0x80 >> c)) != 0) {
-                c++;
-            }
-
-            x0 = (Int16)(x + (Int16)start);
-            x1 = (Int16)(x + (Int16)c - 1);
-
-            if (x1 < 0 || x0 >= kUiFontScreenW) continue;
-            if (x0 < 0) x0 = 0;
-            if (x1 >= kUiFontScreenW) x1 = (Int16)(kUiFontScreenW - 1);
-
-            WinDrawGrayLine(x0, sy, x1, sy);
-        }
-    }
+    ScreenBufBits(x, y, rows, 8, 8, 1, kScreenInkGray);
 }
 
 Int16 UiFontWidth(const Char *text)

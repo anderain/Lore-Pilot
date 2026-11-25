@@ -10,8 +10,10 @@
 
 #include <PalmOS.h>
 
-/* Page cache: a 12x12 page is 12KB, so three pages still fit comfortably. */
-#define kGlyphFontCachePages 3
+/* Page cache: a 12x12 page is 12 KB and an 8x8 page is 16 KB. Two pages
+ * halve the locked heap compared with three, and a page of body text rarely
+ * touches more than two font pages. */
+#define kGlyphFontCachePages 2
 
 /* Largest supported glyph: 12x12 needs 24 bytes (2 per row). */
 #define kGlyphFontMaxGlyphBytes 24
@@ -71,13 +73,10 @@ void    GlyphFontClose(GlyphFont *font);
  * codes or blank slots. out must hold at least kGlyphFontMaxGlyphBytes. */
 Boolean GlyphFontGet(GlyphFont *font, UInt16 code, UInt8 *out);
 
-/* Draw one glyph as horizontal runs (Palm OS 2.0 safe). */
+/* Draw one glyph into the frame buffer (or straight to the screen when the
+ * buffer could not be allocated). */
 void GlyphFontDrawGlyph(const GlyphFont *font, Int16 x, Int16 y,
-                        const UInt8 *rows, UInt8 scale);
-
-/* Draw GB2312 text at x/y. Returns number of glyphs drawn. */
-UInt16 GlyphFontDrawGbText(GlyphFont *font, Int16 x, Int16 y,
-                           const UInt8 *text, UInt16 byteLen, UInt8 scale);
+                        const UInt8 *rows);
 
 /* Map one GB2312 character to its dense slot index (for debugging). */
 Boolean GlyphFontSlot(GlyphFont *font, UInt16 code, UInt16 *page, UInt16 *offset);

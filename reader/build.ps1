@@ -56,7 +56,7 @@ Pop-Location
 $sources = @(
     'UiFont', 'UiGlyphs', 'UiButton', 'Shelf', 'GotoForm', 'TextDb',
     'BookList', 'ReaderForm', 'FontList', 'GlyphFont', 'GbTest', 'GlyphTest',
-    'LorePilotReader'
+    'ScreenBuf', 'LorePilotReader'
 )
 
 $objDir = Join-Path $OutDir 'obj'

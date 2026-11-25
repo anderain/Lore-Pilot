@@ -7,11 +7,13 @@
  *
  * Deliberately uses only Palm OS 1.0 APIs:
  *   Dm* record database calls, Mem* handle calls, Frm* forms,
- *   WinDrawLine / WinDrawChars / WinEraseRectangle.
+ *   ScreenBuf (WinDrawBitmap / WinDrawLine) and WinDrawChars.
  *
- * No BmpCreate/BmpGetBits, no WinDrawPixel, no WinScreenLock, no
- * PalmOSGlue, no StrPrintF. Drawing is done as horizontal runs so it works
- * on OS 2.0 without any bitmap blitter support.
+ * Glyphs are composed into the frame buffer and flushed in one go; the ASCII
+ * status lines are drawn with the system font after the flush. Everything is
+ * 1x: the 2x copies only existed to exercise the scaled run drawing, which the
+ * reader never used. The odd-offset and edge-clipping probes are kept, because
+ * they are the only on-device exercise of the buffer's shift and clip paths.
  *
  * PDB layout (record 0 header):
  *   magic 'LPG1', version, cell size, glyph count, flags, checksum,
@@ -23,6 +25,7 @@
 #include <PalmOS.h>
 
 #include "GlyphTest.h"
+#include "ScreenBuf.h"
 #include "LorePilotReader_Rsc.h"
 #include "GlyphAtlas.h"
 
@@ -30,6 +33,9 @@
 #define kGlyphTestMaxPhrase     64
 #define kGlyphTestFormW         160
 #define kGlyphTestFormH         160
+
+/* Body area above the form's buttons (they start at y 146). */
+#define kGlyphTestBodyH         144
 
 #define kGlyphTestDbName        "LPT08A"
 #define kGlyphTestDbLegacyName  "LPGlyph8"
@@ -381,13 +387,8 @@ static void GlyphTestLoad(void)
 
 static void GlyphTestClearBody(void)
 {
-    RectangleType r;
-
-    r.topLeft.x = 0;
-    r.topLeft.y = 0;
-    r.extent.x  = kGlyphTestFormW;
-    r.extent.y  = 144;                 /* keep the two buttons intact */
-    WinEraseRectangle(&r, 0);
+    (void)ScreenBufAlloc(kGlyphTestBodyH);
+    ScreenBufClearRect(0, kGlyphTestBodyH);
 }
 
 static void GlyphTestDrawText(Int16 x, Int16 y, const Char *s)
@@ -395,60 +396,14 @@ static void GlyphTestDrawText(Int16 x, Int16 y, const Char *s)
     WinDrawChars(s, StrLen(s), x, y);
 }
 
-/*
- * Draw one 8x8 glyph as horizontal runs. Clipping is applied to the
- * 160x160 screen, so negative x, right-edge clipping and 2x scaling all
- * work without any shift/mask arithmetic.
- */
-static void GlyphTestDrawGlyph(Int16 x, Int16 y, const UInt8 *rows, UInt8 scale)
+/* One 8x8 glyph into the frame buffer. ScreenBuf clips negative x and the
+ * right edge, which is what the probes below rely on. */
+static void GlyphTestDrawGlyph(Int16 x, Int16 y, const UInt8 *rows)
 {
-    UInt16 r;
-    UInt16 c;
-
-    for (r = 0; r < 8; r++) {
-        UInt8 bits = rows[r];
-
-        c = 0;
-        while (c < 8) {
-            UInt16 start;
-            Int16 x0;
-            Int16 x1;
-            UInt16 yy;
-
-            if ((bits & (UInt8)(0x80 >> c)) == 0) {
-                c++;
-                continue;
-            }
-
-            start = c;
-            while (c < 8 && (bits & (UInt8)(0x80 >> c)) != 0) {
-                c++;
-            }
-
-            x0 = (Int16)(x + (Int16)start * (Int16)scale);
-            x1 = (Int16)(x + (Int16)c * (Int16)scale - 1);
-
-            if (x1 < 0 || x0 >= kGlyphTestFormW) {
-                continue;
-            }
-            if (x0 < 0) {
-                x0 = 0;
-            }
-            if (x1 >= kGlyphTestFormW) {
-                x1 = (Int16)(kGlyphTestFormW - 1);
-            }
-
-            for (yy = 0; yy < scale; yy++) {
-                Int16 sy = (Int16)(y + (Int16)r * (Int16)scale + (Int16)yy);
-                if (sy >= 0 && sy < kGlyphTestFormH) {
-                    WinDrawLine(x0, sy, x1, sy);
-                }
-            }
-        }
-    }
+    ScreenBufCell(x, y, rows, 8, kScreenInkBlack);
 }
 
-static void GlyphTestDrawPhrase(Int16 x, Int16 y, UInt8 scale, UInt16 first, UInt16 count)
+static void GlyphTestDrawPhrase(Int16 x, Int16 y, UInt16 first, UInt16 count)
 {
     UInt16 i;
     UInt16 index;
@@ -456,8 +411,8 @@ static void GlyphTestDrawPhrase(Int16 x, Int16 y, UInt8 scale, UInt16 first, UIn
     for (i = 0; i < count && (UInt16)(first + i) < gGlyphTest.phraseCount; i++) {
         index = gGlyphTest.phrase[first + i];
         if (index < gGlyphTest.glyphCount) {
-            GlyphTestDrawGlyph((Int16)(x + (Int16)i * 8 * scale), y,
-                               gGlyphTest.rows[index], scale);
+            GlyphTestDrawGlyph((Int16)(x + (Int16)i * 8), y,
+                               gGlyphTest.rows[index]);
         }
     }
 }
@@ -568,65 +523,69 @@ static void GlyphTestDrawAll(void)
     UInt16 phraseCount;
     Int16 x;
 
-    FntSetFont(stdFont);
     GlyphTestClearBody();
-
-    GlyphTestDrawText(2, 2, "Glyph DB Test");
-
-    GlyphTestDrawStatus();
 
     count = GlyphTestCount();
 
-    /* 1x: all glyphs, two rows of up to 11 */
+    /* All glyphs, two rows of up to 11, at 1x. */
     for (i = 0; i < count && i < 11; i++) {
-        GlyphTestDrawGlyph((Int16)(2 + i * 9), 33, gGlyphTest.rows[i], 1);
+        GlyphTestDrawGlyph((Int16)(2 + i * 9), 33, gGlyphTest.rows[i]);
     }
     for (i = 11; i < count && i < 22; i++) {
-        GlyphTestDrawGlyph((Int16)(2 + (i - 11) * 9), 42, gGlyphTest.rows[i], 1);
+        GlyphTestDrawGlyph((Int16)(2 + (i - 11) * 9), 42, gGlyphTest.rows[i]);
     }
 
     phraseCount = gGlyphTest.phraseCount;
 
-    /* phrase at 1x, centered */
+    /* Phrase at 1x, centred; over 20 units wraps onto a second row. */
     if (phraseCount > 0) {
-        x = (Int16)((kGlyphTestFormW - (Int16)phraseCount * 8) / 2);
+        UInt16 first = phraseCount > 20 ? 20 : phraseCount;
+
+        x = (Int16)((kGlyphTestFormW - (Int16)first * 8) / 2);
         if (x < 0) {
             x = 0;
         }
-        GlyphTestDrawPhrase(x, 53, 1, 0,
-                            phraseCount > 20 ? 20 : phraseCount);
-    }
+        GlyphTestDrawPhrase(x, 54, 0, first);
 
-    /* phrase at 2x: 8 chars per line, centered */
-    if (phraseCount > 0) {
-        UInt16 first = phraseCount > 8 ? 8 : phraseCount;
-
-        x = (Int16)((kGlyphTestFormW - 8 * 16) / 2);
-        GlyphTestDrawPhrase(x, 65, 2, 0, 8);
-
-        if (phraseCount > 8) {
+        if (phraseCount > 20) {
             UInt16 remain = (UInt16)(phraseCount - first);
-            if (remain > 8) {
-                remain = 8;
+            if (remain > 20) {
+                remain = 20;
             }
-            x = (Int16)((kGlyphTestFormW - (Int16)remain * 16) / 2);
-            GlyphTestDrawPhrase(x, 84, 2, first, remain);
+            x = (Int16)((kGlyphTestFormW - (Int16)remain * 8) / 2);
+            GlyphTestDrawPhrase(x, 64, first, remain);
         }
     }
 
-    /* odd x offset: catches shift bugs if a bitmap path is used later */
+    /* Odd x offsets: the buffer is byte addressed, so these land mid-byte
+     * and catch a wrong shift mask. */
     for (i = 0; i < count && i < 4; i++) {
-        GlyphTestDrawGlyph((Int16)(3 + i * 30), 102, gGlyphTest.rows[i], 2);
+        GlyphTestDrawGlyph((Int16)(3 + i * 30), 78, gGlyphTest.rows[i]);
+    }
+    for (i = 0; i < count && i < 4; i++) {
+        GlyphTestDrawGlyph((Int16)(11 + i * 30), 90, gGlyphTest.rows[i]);
     }
 
-    /* left and right clipping */
+    /* Left and right clipping: partially off the buffer on each side. */
     if (count > 0) {
-        GlyphTestDrawGlyph(-3, 120, gGlyphTest.rows[0], 2);
+        GlyphTestDrawGlyph(-3, 104, gGlyphTest.rows[0]);
     }
     if (count > 1) {
-        GlyphTestDrawGlyph(157, 120, gGlyphTest.rows[1], 2);
+        GlyphTestDrawGlyph(157, 104, gGlyphTest.rows[1]);
+    }
+    if (count > 2) {
+        GlyphTestDrawGlyph(-8, 116, gGlyphTest.rows[2]);
+    }
+    if (count > 3) {
+        GlyphTestDrawGlyph(160, 116, gGlyphTest.rows[3]);
     }
 
+    /* Whole frame composed: one flush, then the ASCII status on top. */
+    ScreenBufFlush();
+
+    FntSetFont(stdFont);
+    GlyphTestDrawText(2, 2, "Glyph DB Test");
+    GlyphTestDrawStatus();
     GlyphTestDrawInfo();
 }
 
@@ -650,6 +609,11 @@ Boolean GlyphTestFormHandleEvent(EventType *eventP)
             handled = true;
             break;
 
+        case frmCloseEvent:
+            ScreenBufFree();
+            handled = true;
+            break;
+
         case ctlSelectEvent:
             switch (eventP->data.ctlSelect.controlID) {
                 case GlyphTestReloadButton:
@@ -659,6 +623,7 @@ Boolean GlyphTestFormHandleEvent(EventType *eventP)
                     break;
 
                 case GlyphTestBackButton:
+                    ScreenBufFree();
                     FrmGotoForm(MainForm);
                     handled = true;
                     break;

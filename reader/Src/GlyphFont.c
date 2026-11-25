@@ -12,12 +12,14 @@
  * Supported cells: 8x8 (8 bytes/glyph, 2048 per page) and
  * 12x12 (24 bytes/glyph, 512 per page). Everything else is rejected.
  *
- * Only Dm*, Mem* and WinDrawLine are used, so this runs on Palm OS 2.0.
+ * Only Dm*, Mem* and WinDrawBitmap (through ScreenBuf) are used, so this runs
+ * on Palm OS 2.0.
  */
 
 #include <PalmOS.h>
 
 #include "GlyphFont.h"
+#include "ScreenBuf.h"
 
 #define kGlyphFontHeaderLen  48
 #define kGlyphFontMaxPages   32
@@ -449,77 +451,9 @@ Boolean GlyphFontGet(GlyphFont *font, UInt16 code, UInt8 *out)
 }
 
 void GlyphFontDrawGlyph(const GlyphFont *font, Int16 x, Int16 y,
-                        const UInt8 *rows, UInt8 scale)
+                        const UInt8 *rows)
 {
-    UInt16 r;
-    UInt16 c;
-    UInt16 cellW;
-    UInt16 cellH;
-    UInt16 rowBytes;
-    Int16 right = 159;
+    if (font == 0 || rows == 0) return;
 
-    if (font == 0 || rows == 0 || scale == 0) return;
-
-    cellW = font->cellW;
-    cellH = font->cellH;
-    rowBytes = (UInt16)((cellW + 7) >> 3);
-
-    for (r = 0; r < cellH; r++) {
-        const UInt8 *row = rows + r * rowBytes;
-
-        c = 0;
-        while (c < cellW) {
-            UInt16 start;
-            Int16 x0;
-            Int16 x1;
-            UInt16 yy;
-
-            if ((row[c >> 3] & (UInt8)(0x80 >> (c & 7))) == 0) {
-                c++;
-                continue;
-            }
-
-            start = c;
-            while (c < cellW && (row[c >> 3] & (UInt8)(0x80 >> (c & 7))) != 0) {
-                c++;
-            }
-
-            x0 = (Int16)(x + (Int16)start * (Int16)scale);
-            x1 = (Int16)(x + (Int16)c * (Int16)scale - 1);
-
-            if (x1 < 0 || x0 > right) continue;
-            if (x0 < 0) x0 = 0;
-            if (x1 > right) x1 = right;
-
-            for (yy = 0; yy < scale; yy++) {
-                Int16 sy = (Int16)(y + (Int16)r * (Int16)scale + (Int16)yy);
-                if (sy >= 0 && sy < 160) {
-                    WinDrawLine(x0, sy, x1, sy);
-                }
-            }
-        }
-    }
-}
-
-UInt16 GlyphFontDrawGbText(GlyphFont *font, Int16 x, Int16 y,
-                           const UInt8 *text, UInt16 byteLen, UInt8 scale)
-{
-    UInt16 i;
-    UInt16 drawn = 0;
-    UInt8 rows[kGlyphFontMaxGlyphBytes];
-
-    if (!font || !text) return 0;
-
-    i = 0;
-    while ((UInt16)(i + 1) < byteLen) {
-        UInt16 code = (UInt16)(((UInt16)text[i] << 8) | text[i + 1]);
-
-        if (GlyphFontGet(font, code, rows)) {
-            GlyphFontDrawGlyph(font, (Int16)(x + (Int16)drawn * font->cellW * scale),
-                               y, rows, scale);
-        }
-        drawn++;
-        i = (UInt16)(i + 2);
-    }
-    return drawn;
+    ScreenBufCell(x, y, rows, font->cellW, kScreenInkBlack);
 }

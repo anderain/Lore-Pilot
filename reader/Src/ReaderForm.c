@@ -6,18 +6,23 @@
  *
  *   y 0..7      black band, white 6x8 ASCII: displayName + "N/T"
  *   y 8..149    white body, glyph font, vertically centred
- *   y 150..157  black band, white 6x8 ASCII: PREV  MENU  NEXT
+ *   y 150..157  black band, built-in 8x8 Chinese footer labels
  *   y 158       white progress border
  *   y 159       white progress fill (160 * page / total)
  *
  * Files written by older lore-teller builds have progressRows == 0: the body
  * then runs 8..151 and the footer sits at 152..159, with no progress bar.
  *
+ * A page is composed in a screen buffer and flushed with one WinDrawBitmap,
+ * so page turns never flash: the old "erase the whole screen, then draw into
+ * it" sequence is gone. If the 3.2 KB buffer cannot be allocated the drawing
+ * calls fall back to WinDrawLine and the reader still works, one glyph run at
+ * a time.
+ *
  * Volumes are standalone: turning past the last page or before the first page
  * does nothing, so a 1 MB device only ever needs the volume being read.
  *
- * Only Palm OS 1.0/2.x calls are used (WinDrawLine, WinEraseLine,
- * WinEraseRectangle, Data Manager 1.0).
+ * Only Palm OS 1.0/2.x calls are used.
  */
 
 #include <PalmOS.h>
@@ -25,6 +30,7 @@
 #include "ReaderForm.h"
 #include "TextDb.h"
 #include "GlyphFont.h"
+#include "ScreenBuf.h"
 #include "UiFont.h"
 #include "UiGlyphs.h"
 #include "GotoForm.h"
@@ -152,18 +158,6 @@ static UInt32 ReaderGlobalPage(void)
 
 /*------------------------------------------------------------------ drawing*/
 
-static void ReaderFillBand(UInt16 top, UInt16 rows)
-{
-    UInt16 y;
-
-    for (y = 0; y < rows; y++) {
-        UInt16 yy = (UInt16)(top + y);
-
-        if (yy >= kReaderH) break;
-        WinDrawLine(0, (Coord)yy, (Coord)(kReaderW - 1), (Coord)yy);
-    }
-}
-
 /* Draw one body line: GB2312 double bytes, one glyph per cell. */
 static void ReaderDrawLine(UInt16 x, UInt16 y, UInt16 start, UInt16 bytes)
 {
@@ -183,7 +177,7 @@ static void ReaderDrawLine(UInt16 x, UInt16 y, UInt16 start, UInt16 bytes)
         if (GlyphFontGet(&gReaderFont, code, rows)) {
             GlyphFontDrawGlyph(&gReaderFont,
                                (Int16)(x + col * gReaderCell),
-                               (Int16)y, rows, 1);
+                               (Int16)y, rows);
         }
     }
 }
@@ -194,7 +188,7 @@ static void ReaderDrawHeader(void)
     UInt16 len;
     Int16  x;
 
-    ReaderFillBand(0, ReaderBodyTop());
+    ScreenBufFillBand(0, ReaderBodyTop());
 
     /* Left: display name, white on black. */
     UiFontDrawText(0, 0, gReaderDb.header.displayName, true);
@@ -223,7 +217,7 @@ static void ReaderDrawFooter(void)
     UInt32 filled;
 
     /* Black band covers the text rows plus the progress rows. */
-    ReaderFillBand(top, (UInt16)(rows + progressRows));
+    ScreenBufFillBand(top, (UInt16)(rows + progressRows));
 
     UiGlyphsDrawText(kReaderPrevX, (Int16)top, kReaderLabelPrev,
                      (UInt16)(sizeof(kReaderLabelPrev) / sizeof(UInt16)), true);
@@ -242,7 +236,7 @@ static void ReaderDrawFooter(void)
     fillY = (UInt16)(borderY + 1);
 
     /* Border: full-width white line. */
-    WinEraseLine(0, (Coord)borderY, kReaderW - 1, (Coord)borderY);
+    ScreenBufHLine((Int16)borderY, 0, kReaderW - 1, kScreenInkWhite);
 
     /* Fill: white from x=0, length = round(160 * page / total). */
     total = gReaderDb.header.totalPages;
@@ -255,7 +249,7 @@ static void ReaderDrawFooter(void)
     if (filled > (UInt32)kReaderW) filled = (UInt32)kReaderW;
 
     if (filled > 0 && fillY < kReaderH) {
-        WinEraseLine(0, (Coord)fillY, (Coord)(filled - 1), (Coord)fillY);
+        ScreenBufHLine((Int16)fillY, 0, (Int16)(filled - 1), kScreenInkWhite);
     }
 }
 
@@ -268,16 +262,11 @@ static void ReaderDrawBody(void)
     UInt16 used;
     UInt16 y;
     UInt16 i;
-    RectangleType r;
 
     if (bottom <= top) return;
     height = (UInt16)(bottom - top);
 
-    r.topLeft.x = 0;
-    r.topLeft.y = (Coord)top;
-    r.extent.x = kReaderW;
-    r.extent.y = (Coord)height;
-    WinEraseRectangle(&r, 0);
+    ScreenBufClearRect(top, height);
 
     if (!gReaderFontReady) {
         Char msg[24];
@@ -306,21 +295,20 @@ static void ReaderDrawBody(void)
     }
 }
 
-static void ReaderDrawAll(void)
+/* Compose the whole page in the frame buffer, then show it in one go. */
+static void ReaderPaint(void)
 {
-    RectangleType r;
+    ScreenBufClearRect(0, kReaderH);
 
-    r.topLeft.x = 0;
-    r.topLeft.y = 0;
-    r.extent.x = kReaderW;
-    r.extent.y = kReaderH;
-    WinEraseRectangle(&r, 0);
-
-    if (!gReaderOpen) return;
+    if (!gReaderOpen) {
+        ScreenBufFlush();
+        return;
+    }
 
     ReaderDrawBody();
     ReaderDrawHeader();
     ReaderDrawFooter();
+    ScreenBufFlush();
 }
 
 /*------------------------------------------------------------------ loading*/
@@ -399,6 +387,10 @@ Boolean ReaderFormRequest(const Char *dbName, UInt16 cell)
     }
     ReaderOpenFont();
 
+    /* The reader owns the whole screen, so the buffer covers all 160 rows.
+     * Failing to get it is survivable: drawing falls back to the screen. */
+    (void)ScreenBufAlloc(kReaderH);
+
     gReaderRequested = true;
     return true;
 }
@@ -413,6 +405,7 @@ static void ReaderFormClose(void)
         TextDbClose(&gReaderDb);
         gReaderOpen = false;
     }
+    ScreenBufFree();
     gReaderRequested = false;
 }
 
@@ -438,18 +431,21 @@ static Boolean ReaderHandleTap(const EventType *eventP)
 
     if (x < kReaderTapZone1) {
         if (ReaderPrevPage()) {
-            ReaderDrawAll();
+            ReaderPaint();
         }
         return true;
     }
 
     if (x < kReaderTapZone2) {
-        /* Hand off to the self-drawn keypad panel; it returns to this form. */
+        /* Hand off to the self-drawn keypad panel; it returns to this form.
+         * Release the frame buffer first: the keypad draws with the direct
+         * path, and a live buffer would swallow its output. */
         GotoFormRequest(gReaderDb.header.firstPage,
                         gReaderDb.header.firstPage +
                             gReaderDb.header.pageCount - 1,
                         ReaderGlobalPage());
         gGotoPending = true;
+        ScreenBufFree();
         FrmGotoForm(GotoForm);
         return true;
     }
@@ -463,7 +459,7 @@ static Boolean ReaderHandleTap(const EventType *eventP)
     }
 
     if (ReaderNextPage()) {
-        ReaderDrawAll();
+        ReaderPaint();
     }
     return true;
 }
@@ -481,18 +477,23 @@ Boolean ReaderFormHandleEvent(EventType *eventP)
                 /* Coming back from the goto panel? Apply its result. */
                 UInt32 page;
 
+                /* The buffer was released when the keypad took over. */
+                (void)ScreenBufAlloc(kReaderH);
                 if (GotoFormTakePage(&page)) {
                     (void)ReaderLoadPage(
                         (UInt16)(page - gReaderDb.header.firstPage));
                 }
-                ReaderDrawAll();
+                ReaderPaint();
             }
             handled = true;
             break;
 
         case frmUpdateEvent:
             if (gReaderOpen) {
-                ReaderDrawAll();
+                /* FrmDrawForm has already wiped the screen: rebuild the frame
+                 * buffer and put it back, instead of the window server's
+                 * partial repaint, which would flash. */
+                ReaderPaint();
             }
             handled = true;
             break;
@@ -521,12 +522,12 @@ Boolean ReaderFormHandleEvent(EventType *eventP)
                  * different ROMs, so accept both. */
                 if (chr == vchrPageUp || chr == chrUpArrow) {
                     if (ReaderPrevPage()) {
-                        ReaderDrawAll();
+                        ReaderPaint();
                     }
                     handled = true;
                 } else if (chr == vchrPageDown || chr == chrDownArrow) {
                     if (ReaderNextPage()) {
-                        ReaderDrawAll();
+                        ReaderPaint();
                     }
                     handled = true;
                 }
