@@ -1,5 +1,11 @@
 # Lore-Pilot
 
+An experimental Chinese reader for **Palm OS 2.0** (Pilot Professional: 160x160
+monochrome, 1 MB RAM, 16 MHz 68000). Higher Palm OS versions run it too. Text is
+laid out into 160x160 pages and split into standalone volumes, so a 1 MB device
+only ever holds the volume being read. The whole UI is drawn from a built-in 8x8
+glyph table, so the reader works without any installed font.
+
 中文阅读器可行性验证，目标设备是 **Palm OS 2.0 / Pilot Professional**
 （160×160 单色、1MB RAM、16MHz 68000）。仓库里包含三部分：
 
@@ -7,6 +13,26 @@
 - `font-packer/` — Node 18+ 零依赖脚本，把点阵字模打包成 Palm OS PDB；
 - 生成的头文件（`reader/Src/GlyphAtlas.h`、`GbSamples.h`、`GbSamples12.h`、
   `GbText.h`）已入库，保证没有字体的人也能直接编译。
+
+## 快速开始
+
+### 安装
+
+1. **安装字体** —— 把 `LPF08F.pdb`（8×8）或 `LPF12F.pdb`（12×12）同步到机器上。
+   它们是中文点阵字库，没有字体时正文无法显示。
+2. **安装程序** —— 同步 `LorePilotReader.prc`，启动器里会出现 Lore-Pilot 图标。
+3. **切分书页并导入** —— 用 [Lore-Teller](#书页-pdblore-teller) 把 TXT 转成
+   `LPB_<书名>_<卷号>.pdb`，按需要只导入想读的那几卷。
+
+### 使用
+
+- **管理字体和卷** —— 书架页上半是「书架」（每行一卷，显示卷号与页范围），
+  下半是「字体」。选中后按「阅读」打开、「删除」移除。换过库之后，在菜单
+  `Options → Refresh Lists` 刷新列表。
+- **阅读** —— 页脚四等分：上一页 / 跳转 / 回书架 / 下一页。点「跳转」用数字键盘
+  输入页码，硬件上下键也能翻页。到卷首卷尾会停住，换卷请回书架打开下一卷。
+
+更细的版面、触控与测试菜单说明见 [设备端细节](#设备端细节)。
 
 ## 前置条件
 
@@ -71,7 +97,7 @@ node font-packer/src/pack-gb2312.mjs --level full  --cell 12
 
 详细的数据格式、校验规则和故障排查见 `font-packer/README.md`。
 
-## 设备端验证
+## 设备端细节
 
 主界面标题为 **Bookshelf**，上下两块：
 

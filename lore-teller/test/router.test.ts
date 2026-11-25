@@ -43,9 +43,18 @@ describe('router shell', () => {
     expect(text).not.toContain('每卷页数');
   });
 
-  it('leaves the home page empty for now', async () => {
+  it('describes the project on the home page', async () => {
     const wrapper = await mountAt('/');
-    expect(wrapper.text()).not.toContain('分卷工具');
-    expect(wrapper.find('main').text()).toBe('');
+    const text = wrapper.text();
+    expect(text).toContain('一个为 Palm OS 2.0 打造的中文阅读器实验项目');
+    // Screenshot captions and both entry points to the tool.
+    for (const label of ['实机', '书架', '阅读页', '跳转']) {
+      expect(text).toContain(label);
+    }
+    expect(text).toContain('如何安装');
+    expect(text).toContain('如何使用');
+    // Two entry points to the tool: hero button and the closing call to action.
+    const toolLinks = wrapper.findAll('a').filter((a) => a.attributes('href')?.includes('/tool'));
+    expect(toolLinks.length).toBeGreaterThanOrEqual(2);
   });
 });

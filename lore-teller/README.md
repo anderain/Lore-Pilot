@@ -11,10 +11,13 @@
 ```powershell
 cd lore-teller
 npm install
-npm run dev        # http://localhost:5173 (首页) / #/tool (分割器)
-npm test           # 26 个单元测试
+npm run dev        # http://localhost:5173/ (首页) / #/tool (分卷工具)
+npm test           # 30 个单元测试
 npm run build      # 产出 dist/
 ```
+
+页面：`/#/` 是项目介绍与截图（`src/views/HomeView.vue`），`/#/tool` 是三步分卷工具
+（`src/views/ToolView.vue`）。截图素材放在 `src/assets/`。
 
 ## 必需：准备预览字库
 
