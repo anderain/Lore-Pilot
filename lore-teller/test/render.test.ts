@@ -4,7 +4,17 @@
 
 import { describe, expect, it } from 'vitest';
 import { parseGlyphFont } from '../src/lib/glyphFont';
-import { paintToCanvas, renderScreen, SCREEN_H, SCREEN_W } from '../src/lib/render';
+import { UI_GLYPHS, uiGlyphRows } from '../src/fonts/uiGlyphs';
+import {
+  FOOTER_GOTO_X,
+  FOOTER_NEXT_X,
+  FOOTER_PREV_X,
+  FOOTER_SHELF_X,
+  paintToCanvas,
+  renderScreen,
+  SCREEN_H,
+  SCREEN_W,
+} from '../src/lib/render';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -20,6 +30,49 @@ function loadFont(file: string) {
 
 const font8 = loadFont('LPF08F.pdb');
 const font12 = loadFont('LPF12F.pdb');
+
+describe('built-in glyph table', () => {
+  it('matches reader/Src/UiGlyphs.c', () => {
+    const source = path.resolve(__dirname, '..', '..', 'reader', 'Src', 'UiGlyphs.c');
+    const src = fs.readFileSync(source, 'utf8');
+    const re = /\{\s*(0x[0-9A-Fa-f]{2}[0-9A-Fa-f]{2})\s*,\s*\{([^}]*)\}\s*\}/g;
+    const fromC: Array<{ code: number; rows: number[] }> = [];
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(src))) {
+      fromC.push({
+        code: parseInt(m[1], 16),
+        rows: m[2]
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((s) => parseInt(s, 16)),
+      });
+    }
+
+    expect(fromC.length).toBe(UI_GLYPHS.length);
+    for (let i = 0; i < fromC.length; i++) {
+      expect(UI_GLYPHS[i].code).toBe(fromC[i].code);
+      expect([...UI_GLYPHS[i].rows]).toEqual(fromC[i].rows);
+    }
+  });
+
+  it('has every label the reader and bookshelf show', () => {
+    const need = [
+      0xc9cf, 0xcfc2, 0xd2bb, 0xd2b3, // 上 下 一 页
+      0xbbd8, 0xcae9, 0xbcdc, // 回 书 架
+      0xd7d6, 0xcce5, // 字 体
+      0xd4c4, 0xb6c1, // 阅 读
+      0xc9be, 0xb3fd, // 删 除
+      0xccf8, 0xd7aa, // 跳 转
+      0xd6c1, 0xc2eb, // 至 码
+      0xc8a1, 0xcffb, // 取 消
+    ];
+    expect(need).toHaveLength(UI_GLYPHS.length);
+    for (const code of need) {
+      expect(uiGlyphRows(code), code.toString(16)).not.toBeNull();
+    }
+  });
+});
 
 describe('glyph font loader', () => {
   it('parses the 8x8 font', () => {
@@ -85,37 +138,63 @@ describe('screen renderer', () => {
     expect(fillInk).toBe(80);
   });
 
-  it('centres the footer MENU label exactly', () => {
+  it('draws the Chinese footer labels from the built-in glyphs', () => {
     const bits = renderScreen(
       { displayName: 'X', page: { lines: ['天'] }, pageNumber: 1, totalPages: 1 },
       font8,
       8,
     );
 
-    // PREV starts at x=2 and NEXT at x=134, so scanning 30..130 sees only MENU.
-    // The footer band is black, so the glyph pixels are the zeroes (white).
-    let first = -1;
-    let last = -1;
-    for (let x = 30; x <= 130; x++) {
-      let ink = false;
+    // White ink (0) inside the black footer band, column by column.
+    const inkAt = (x: number): boolean => {
       for (let y = 150; y < 158; y++) {
-        if (bits[y * SCREEN_W + x] === 0) {
-          ink = true;
-          break;
-        }
+        if (bits[y * SCREEN_W + x] === 0) return true;
       }
-      if (ink) {
+      return false;
+    };
+
+    const span = (from: number, to: number): { first: number; last: number } => {
+      let first = -1;
+      let last = -1;
+      for (let x = from; x <= to; x++) {
+        if (!inkAt(x)) continue;
         if (first < 0) first = x;
         last = x;
       }
+      return { first, last };
+    };
+
+    // Four 8px cells per 40px column. The glyphs keep a blank 8th column, so
+    // ink stops one pixel short of each cell edge.
+    const prev = span(0, 39);
+    const goto = span(40, 79);
+    const shelf = span(80, 119);
+    const next = span(120, 159);
+
+    expect(prev.first).toBe(FOOTER_PREV_X);
+    expect(prev.last).toBeLessThan(FOOTER_PREV_X + 3 * 8);
+    expect(goto.first).toBe(FOOTER_GOTO_X);
+    expect(goto.last).toBeLessThan(FOOTER_GOTO_X + 2 * 8);
+    expect(shelf.first).toBe(FOOTER_SHELF_X);
+    expect(shelf.last).toBeLessThan(FOOTER_SHELF_X + 3 * 8);
+    expect(next.first).toBe(FOOTER_NEXT_X);
+    expect(next.last).toBeLessThan(FOOTER_NEXT_X + 3 * 8);
+
+    // Every label is centred inside its own quarter of the screen.
+    for (const [zone, x, count] of [
+      [0, FOOTER_PREV_X, 3],
+      [1, FOOTER_GOTO_X, 2],
+      [2, FOOTER_SHELF_X, 3],
+      [3, FOOTER_NEXT_X, 3],
+    ] as const) {
+      const centre = x + (count * 8) / 2;
+      expect(centre).toBe(zone * 40 + 20);
     }
 
-    // The label box is 4 glyphs * 6px = 24px, so it starts at (160-24)/2 = 68
-    // and its centre lands exactly on the 80px screen centre.
-    expect(first).toBe(68);
-    expect(first + 12).toBe(SCREEN_W / 2);
-    // Ink never runs into the neighbouring PREV/NEXT boxes.
-    expect(last).toBeLessThan(68 + 24);
+    // No ink spills between the labels.
+    expect(span(32, 51)).toEqual({ first: -1, last: -1 });
+    expect(span(68, 87)).toEqual({ first: -1, last: -1 });
+    expect(span(112, 127)).toEqual({ first: -1, last: -1 });
   });
 
   it('centres the body vertically', () => {

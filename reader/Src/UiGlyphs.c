@@ -1,0 +1,95 @@
+/*
+ * UiGlyphs.c
+ *
+ * Built-in 8x8 Chinese glyphs for the reader's own controls.
+ *
+ * THIS FILE IS THE SOURCE OF TRUTH. lore-teller/scripts/gen-ui-glyphs.mjs
+ * parses the table below and regenerates the web preview's copy
+ * (lore-teller/src/fonts/uiGlyphs.ts), so C and the browser cannot drift.
+ *
+ * Format: 8 rows per glyph, MSB first, 1 = ink. Same as a GLYF/LPRD glyph.
+ * The data comes from the Fusion Pixel 8px font (SIL OFL 1.1); see ../README.md.
+ *
+ * Keep this file ASCII-only: the comments name the character in pinyin so the
+ * CodeWarrior compiler does not have to deal with an encoding.
+ *
+ * Add new glyphs by appending rows; the comment format "/* pinyin *\/" is what
+ * the generator looks for, one glyph per line.
+ */
+
+#include <PalmOS.h>
+
+#include "UiGlyphs.h"
+#include "UiFont.h"
+
+static const UiGlyph kUiGlyphs[] = {
+    { 0xC9CF, { 0x00, 0x10, 0x10, 0x1C, 0x10, 0x10, 0x10, 0xFE } }, /* shang */
+    { 0xCFC2, { 0x00, 0xFE, 0x10, 0x18, 0x14, 0x10, 0x10, 0x10 } }, /* xia */
+    { 0xD2BB, { 0x00, 0x00, 0x00, 0x00, 0xFE, 0x00, 0x00, 0x00 } }, /* yi */
+    { 0xD2B3, { 0x00, 0xFE, 0x10, 0x7C, 0x44, 0x54, 0x10, 0xE6 } }, /* ye */
+    { 0xBBD8, { 0x00, 0xFE, 0x82, 0xBA, 0xAA, 0xBA, 0x82, 0xFE } }, /* hui */
+    { 0xCAE9, { 0x00, 0x12, 0x7C, 0x14, 0xFE, 0x12, 0x16, 0x10 } }, /* shu */
+    { 0xBCDC, { 0x00, 0x40, 0xFE, 0x5A, 0xBE, 0xFE, 0x38, 0xD6 } }, /* jia */
+    { 0xD7D6, { 0x00, 0x10, 0xFE, 0xBA, 0x08, 0xFE, 0x10, 0x30 } }, /* zi */
+    { 0xCCE5, { 0x00, 0x28, 0x7E, 0xC8, 0x5C, 0x6A, 0x5C, 0x48 } }, /* ti */
+    { 0xD4C4, { 0x00, 0xBE, 0x02, 0xAA, 0xBA, 0xAA, 0x9A, 0xEE } }, /* yue */
+    { 0xB6C1, { 0x00, 0x5C, 0x08, 0xFE, 0x56, 0x7E, 0x48, 0x72 } }, /* du */
+    { 0xC9BE, { 0x00, 0x7A, 0x6E, 0x6E, 0xFE, 0x6A, 0x6A, 0xAA } }, /* shan */
+    { 0xB3FD, { 0x00, 0xC8, 0xD4, 0xBE, 0xC8, 0xFE, 0x88, 0xAA } }, /* chu */
+    { 0xCCF8, { 0x00, 0xF4, 0xB6, 0xF4, 0x56, 0xF4, 0xD4, 0xE6 } }, /* tiao */
+    { 0xD7AA, { 0x00, 0x48, 0xDC, 0x88, 0xFE, 0x50, 0xDE, 0x42 } }, /* zhuan */
+    { 0xD6C1, { 0x00, 0xFE, 0x28, 0x74, 0x10, 0x7C, 0x10, 0xFE } }, /* zhi */
+    { 0xC2EB, { 0x00, 0x1C, 0xE4, 0x54, 0x9E, 0xE2, 0xBA, 0xE6 } }, /* ma */
+    { 0xC8A1, { 0x00, 0xF0, 0x5E, 0x72, 0x7A, 0x54, 0xFA, 0x10 } }, /* qu */
+    { 0xCFFB, { 0x00, 0xAA, 0x08, 0xBE, 0x22, 0xBE, 0xA2, 0xA6 } }, /* xiao */
+};
+
+#define kUiGlyphCount ((UInt16)(sizeof(kUiGlyphs) / sizeof(kUiGlyphs[0])))
+
+UInt16 UiGlyphsCount(void)
+{
+    return kUiGlyphCount;
+}
+
+Int16 UiGlyphsIndex(UInt16 code)
+{
+    UInt16 i;
+
+    for (i = 0; i < kUiGlyphCount; i++) {
+        if (kUiGlyphs[i].code == code) return (Int16)i;
+    }
+    return -1;
+}
+
+const UiGlyph *UiGlyphsFind(UInt16 code)
+{
+    Int16 index = UiGlyphsIndex(code);
+
+    if (index < 0) return 0;
+    return &kUiGlyphs[index];
+}
+
+UInt16 UiGlyphsDrawText(Int16 x, Int16 y, const UInt16 *codes, UInt16 count,
+                        Boolean inverse)
+{
+    UInt16 i;
+    UInt16 drawn = 0;
+
+    if (codes == 0) return 0;
+
+    for (i = 0; i < count; i++) {
+        const UiGlyph *glyph = UiGlyphsFind(codes[i]);
+
+        if (glyph != 0) {
+            UiFontDrawBitmap8((Int16)(x + (Int16)i * kUiGlyphWidth),
+                              y, glyph->rows, inverse);
+            drawn++;
+        }
+    }
+    return drawn;
+}
+
+Int16 UiGlyphsTextWidth(UInt16 count)
+{
+    return (Int16)(count * kUiGlyphWidth);
+}

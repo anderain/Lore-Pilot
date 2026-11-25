@@ -101,19 +101,22 @@ FORM ID MainForm AT (0 0 160 160)
 BEGIN
     TITLE "Bookshelf"
 
-    LABEL "Books"           ID MainBooksLabel       AT (2 16)
     LIST ""                 ID MainBookList         AT (2 27 156 46) VISIBLEITEMS 4
-    BUTTON "Read"           ID MainReadButton       AT (2 74 46 13)
-    BUTTON "Del"            ID MainDeleteBookButton AT (52 74 30 13)
-
-    LABEL "Fonts"           ID MainFontsLabel       AT (2 88)
     LIST ""                 ID MainFontList         AT (2 99 156 35) VISIBLEITEMS 3
-    BUTTON "Del"            ID MainDeleteFontButton AT (2 135 30 13)
 END
 
 // Full-screen page reader: everything is drawn in code, so the form holds no
 // objects at all.
 FORM ID ReaderForm AT (0 0 160 160)
+    NOFRAME
+BEGIN
+END
+
+// Page jump panel: a self-drawn keypad, no form objects. Real FIELD objects
+// cannot be used here: PilRC's FieldAttrType packing differs from the one Palm
+// OS 2.0 reads, so a form containing a FIELD has its object table misread and
+// its controls land offscreen. See GotoForm.c.
+FORM ID GotoForm AT (0 0 160 160)
     NOFRAME
 BEGIN
 END

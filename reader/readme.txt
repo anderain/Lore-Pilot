@@ -65,6 +65,14 @@ Source files:
   ReaderForm.c/.h   full-screen page reader for one volume (no form objects;
                     everything is drawn), page turning stops at the ends
   UiFont.c/.h       6x8 FontHybird ASCII drawing, normal and inverse
+  UiGlyphs.c/.h     built-in 8x8 Chinese glyphs, so the shelf and reader
+                    controls need no installed font
+  UiButton.c/.h     self-drawn button with a Chinese or ASCII caption (white
+                    face, pressed = inverted, disabled = gray)
+  Shelf.c/.h        bookshelf chrome: section labels and buttons, pen hit
+                    testing
+  GotoForm.c/.h     self-drawn page-jump keypad (text box, 0-9, backspace,
+                    accept/cancel); no FIELD object, see the file header
   GlyphAtlas.h      generated: 21 glyphs + phrase answer key
   GbSamples.h       generated: 10 sample glyphs (8x8) for byte-for-byte check
   GbSamples12.h     generated: 10 sample glyphs (12x12)
@@ -73,29 +81,41 @@ Source files:
 The generated headers are committed so the project builds without the
 Fusion Pixel TTF; regenerate them with font-packer (see ../README.md).
 
-Add TextDb.c, BookList.c, ReaderForm.c and UiFont.c (plus their .h files) to
-the CodeWarrior project.  `reader/build.ps1` builds the same sources from the
-command line without touching the .mcp.
+Add TextDb.c, BookList.c, ReaderForm.c, UiFont.c, UiGlyphs.c, UiButton.c,
+Shelf.c and GotoForm.c (plus their .h files) to the CodeWarrior project.
+`reader/build.ps1` builds the same sources from the command line without
+touching the .mcp.
 
-Main form ("Bookshelf"): a "Books (volumes)" list where every LPBK volume is
-its own row, with Read/Del buttons, and a "Fonts" list of installed GLYF/LPRD
-fonts with its own Del button.  A volume is standalone: Read opens just that
-file and Del deletes just that file.  Tests live in the menu: Test > Glyph 8x8
-/ GB2312 8x8 / GB2312 12x12; Options > Refresh Lists / About.
+Main form ("Bookshelf"): a 书架 list where every LPBK volume is its own row,
+with 阅读 / 删除 buttons, and a 字体 list of installed GLYF/LPRD fonts with its
+own 删除 button.  A volume is standalone: 阅读 opens just that file and 删除
+deletes just that file.  The section labels and buttons are self-drawn with the
+built-in glyphs, because the stock 2.0 button widget can only draw system-font
+text.  Tests live in the menu: Test > Glyph 8x8 / GB2312 8x8 / GB2312 12x12;
+Options > Refresh Lists / About.
 
 Reader layout (matches lore-teller/src/lib/render.ts):
 
   y 0..7      black band, white 6x8 ASCII: book name + global page/total
   y 8..149    white body, glyph font, vertically centred
-  y 150..157  black band, white 6x8 ASCII: PREV, MENU (centred at x=68),
-              NEXT
+  y 150..157  black band, built-in 8x8 Chinese, four 40px columns:
+              prev page, goto, back to shelf, next page
   y 158       white progress border
   y 159       white progress fill (160 * page / total)
 
-The bottom 12 rows are split into three equal touch columns: left = previous
-page, middle = back to the bookshelf, right = next page.  The hardware
-up/down keys also turn pages.  Page turning stops at the volume boundaries;
-the page number and progress bar are still global (firstPage / totalPages).
+The footer labels come from the built-in glyph table in UiGlyphs.c, so they
+render even when no glyph font database is installed.  UiGlyphs.c is the source
+of truth: lore-teller/scripts/gen-ui-glyphs.mjs regenerates the web preview's
+copy from it.
+
+The bottom 12 rows are split into four equal 40px touch columns: previous page,
+page-jump panel, back to the bookshelf, next page.  The jump panel is a
+self-drawn keypad (no FIELD object: PilRC's field packing does not match what
+Palm OS 2.0 reads, which pushes the controls offscreen).  It edits a global page
+number and shows the range this volume covers; an empty or out-of-range entry
+is silently discarded.  The hardware up/down keys also turn pages.  Page
+turning stops at the volume boundaries; the page number and progress bar are
+still global (firstPage / totalPages).
 
 Database names (file name == Palm database name):
 

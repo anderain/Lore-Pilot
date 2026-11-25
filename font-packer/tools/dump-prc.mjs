@@ -51,7 +51,8 @@ const required = [
   ['tAIB', 1000], ['tAIB', 1001], ['MBAR', 1008],
   ['Talt', 1001], ['Talt', 1002], ['Talt', 1003], ['Talt', 1004],
   ['Talt', 1005], ['Talt', 1006], ['Talt', 1007],
-  ['tFRM', 1015], ['tFRM', 1023], ['tFRM', 1024], ['tFRM', 1027],
+  ['tFRM', 1015], ['tFRM', 1018], ['tFRM', 1019], ['tFRM', 1020],
+  ['tFRM', 1023],
 ];
 let missing = 0;
 for (const [t, id] of required) {
@@ -72,7 +73,10 @@ for (const r of resources) {
   for (let i = r.offset; i + 4 <= end; i++) {
     if (b[i] === 0x4e && b[i + 1] === 0x4f) {
       const trap = u16(i + 2);
-      if (trap < 0xa000) continue;      // data that merely looks like an opcode
+      // Real Palm OS traps all live in 0xA000..0xAFFF. Anything else (e.g.
+      // 0xEF00 formed by a jsr displacement followed by a lea opcode) is a
+      // byte-alignment false positive.
+      if (trap < 0xa000 || trap > 0xafff) continue;
       const key = '0x' + trap.toString(16).toUpperCase().padStart(4, '0');
       if (!hits.has(key)) hits.set(key, []);
       hits.get(key).push(i);

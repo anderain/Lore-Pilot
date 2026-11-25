@@ -6,7 +6,20 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { renderScreen, SCREEN_W, SCREEN_H } from '../src/lib/render';
+import {
+  FOOTER_GOTO_X,
+  FOOTER_LABEL_GOTO,
+  FOOTER_LABEL_NEXT,
+  FOOTER_LABEL_PREV,
+  FOOTER_LABEL_SHELF,
+  FOOTER_NEXT_X,
+  FOOTER_PREV_X,
+  FOOTER_SHELF_X,
+  renderScreen,
+  SCREEN_H,
+  SCREEN_W,
+} from '../src/lib/render';
+import { uiGlyphRows } from '../src/fonts/uiGlyphs';
 import { parseGlyphFont, glyphFor } from '../src/lib/glyphFont';
 import { HYBRID_FONT_BYTES, HYBRID_FONT_HEIGHT } from '../src/fonts/hybrid6x8';
 
@@ -113,6 +126,34 @@ function asciiText(x: number, y: number, s: string, black: boolean) {
   }
 }
 
+// Built-in Chinese glyphs, read from the same generated table the web preview
+// uses, so this check tracks the app exactly.
+function uiGlyph(x: number, y: number, code: number, black: boolean) {
+  const rows = uiGlyphRows(code);
+  if (rows === null) return;
+  for (let row = 0; row < 8; row++) {
+    const bitsRow = rows[row];
+    let c = 0;
+    while (c < 8) {
+      if ((bitsRow & (0x80 >> c)) === 0) {
+        c++;
+        continue;
+      }
+      const start = c;
+      while (c < 8 && (bitsRow & (0x80 >> c)) !== 0) c++;
+      drawLine(x + start, y + row, x + c - 1, black);
+    }
+  }
+}
+
+function uiGlyphsText(x: number, y: number, codes: readonly number[], black: boolean) {
+  let cx = x;
+  for (const code of codes) {
+    uiGlyph(cx, y, code, black);
+    cx += 8;
+  }
+}
+
 // Body.
 const fontRaw = fs.readFileSync(fontFile);
 const font = parseGlyphFont(
@@ -159,9 +200,10 @@ asciiText(W - pageLabel.length * 6, 0, pageLabel, false);
 
 // Footer.
 fillBand(bodyBottom, header.footerRows + header.progressRows, true);
-asciiText(2, bodyBottom, 'PREV', false);
-asciiText((W - 4 * 6) / 2, bodyBottom, 'MENU', false);
-asciiText(134, bodyBottom, 'NEXT', false);
+uiGlyphsText(FOOTER_PREV_X, bodyBottom, FOOTER_LABEL_PREV, false);
+uiGlyphsText(FOOTER_GOTO_X, bodyBottom, FOOTER_LABEL_GOTO, false);
+uiGlyphsText(FOOTER_SHELF_X, bodyBottom, FOOTER_LABEL_SHELF, false);
+uiGlyphsText(FOOTER_NEXT_X, bodyBottom, FOOTER_LABEL_NEXT, false);
 
 if (header.progressRows >= 2) {
   const borderY = bodyBottom + header.footerRows;

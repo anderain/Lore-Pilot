@@ -23,6 +23,8 @@
 #include "FontList.h"
 #include "BookList.h"
 #include "ReaderForm.h"
+#include "GotoForm.h"
+#include "Shelf.h"
 
 /*********************************************************************
  * Internal Constants
@@ -103,12 +105,16 @@ static Boolean MainFormHandleEvent(EventType *eventP)
         case frmOpenEvent:
             frmP = FrmGetActiveForm();
             FrmDrawForm(frmP);
+            /* The stock form paints nothing at our label/button rectangles,
+             * so draw the chrome once, then let the lists fill in. */
+            ShelfDraw();
             MainFormRefresh();
             handled = true;
             break;
 
         case frmUpdateEvent:
             FrmDrawForm(FrmGetActiveForm());
+            ShelfDraw();
             MainFormRefresh();
             handled = true;
             break;
@@ -130,27 +136,27 @@ static Boolean MainFormHandleEvent(EventType *eventP)
             }
             break;
 
-        case ctlSelectEvent:
-            switch (eventP->data.ctlSelect.controlID)
+        case penDownEvent:
+        case penUpEvent:
+            /* Self-drawn buttons; returns the action of a completed click. */
+            switch (ShelfHandleEvent(eventP))
             {
-                case MainReadButton:
+                case shelfActionRead:
                     MainFormReadSelected();
-                    handled = true;
                     break;
 
-                case MainDeleteBookButton:
+                case shelfActionDeleteBook:
                     BookListDeleteSelected(FrmGetActiveForm());
-                    handled = true;
                     break;
 
-                case MainDeleteFontButton:
+                case shelfActionDeleteFont:
                     FontListDeleteSelected(FrmGetActiveForm());
-                    handled = true;
                     break;
 
                 default:
                     break;
             }
+            /* Never claim the event: the stock lists still need their taps. */
             break;
 
         default:
@@ -179,6 +185,10 @@ static Boolean AppHandleEvent(EventType *eventP)
 
             case ReaderForm:
                 FrmSetEventHandler(frmP, ReaderFormHandleEvent);
+                break;
+
+            case GotoForm:
+                FrmSetEventHandler(frmP, GotoFormHandleEvent);
                 break;
 
             case GlyphTestForm:
@@ -222,6 +232,7 @@ static void AppEventLoop(void)
 
 static Err AppStart(void)
 {
+    ShelfInit();
     return errNone;
 }
 

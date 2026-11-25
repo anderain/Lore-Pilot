@@ -65,7 +65,7 @@ The body is pure GB2312 with one character per cell:
 |---|---|---|
 | header | y 0..7 (8) | black band, white 6x8 ASCII: displayName + page/total |
 | body | y 8..149 (142) | white, glyph font, vertically centred |
-| footer | y 150..157 (8) | black band, white 6x8 ASCII: PREV, MENU centred at x=68, NEXT |
+| footer | y 150..157 (8) | black band, built-in 8x8 Chinese in four 40px columns: 上一页 (x=8), 跳转 (x=52), 回书架 (x=88), 下一页 (x=128) |
 | progress border | y 158 | white line across the full width |
 | progress fill | y 159 | white up to `160 * page / total` |
 

@@ -13,6 +13,7 @@
 
 #include "BookList.h"
 #include "TextDb.h"
+#include "Shelf.h"
 #include "LorePilotReader_Rsc.h"
 
 #define kBookListWidth  26
@@ -114,8 +115,6 @@ void BookListRefresh(FormType *formP)
     ListType *list;
     UInt16 total;
     UInt16 i;
-    UInt16 buttonIndex;
-    ControlType *control;
     Int16 keep = -1;
 
     list = BookListGet(formP);
@@ -196,16 +195,7 @@ void BookListRefresh(FormType *formP)
     }
     LstDrawList(list);
 
-    buttonIndex = FrmGetObjectIndex(formP, MainReadButton);
-    control = (ControlType *)FrmGetObjectPtr(formP, buttonIndex);
-    if (control != 0) {
-        CtlSetEnabled(control, (Boolean)(gBookCount > 0));
-    }
-    buttonIndex = FrmGetObjectIndex(formP, MainDeleteBookButton);
-    control = (ControlType *)FrmGetObjectPtr(formP, buttonIndex);
-    if (control != 0) {
-        CtlSetEnabled(control, (Boolean)(gBookCount > 0));
-    }
+    ShelfSetBookEnabled((Boolean)(gBookCount > 0));
 }
 
 Int16 BookListGetSelection(FormType *formP)
@@ -219,8 +209,6 @@ Int16 BookListGetSelection(FormType *formP)
 void BookListSelect(FormType *formP, Int16 itemNum)
 {
     ListType *list = BookListGet(formP);
-    UInt16 buttonIndex;
-    ControlType *control;
 
     if (list == 0) return;
     gBookSelected = itemNum;
@@ -232,16 +220,7 @@ void BookListSelect(FormType *formP, Int16 itemNum)
     LstSetSelection(list, itemNum);
     LstDrawList(list);
 
-    buttonIndex = FrmGetObjectIndex(formP, MainReadButton);
-    control = (ControlType *)FrmGetObjectPtr(formP, buttonIndex);
-    if (control != 0) {
-        CtlSetEnabled(control, (Boolean)(itemNum >= 0 && itemNum < gBookCount));
-    }
-    buttonIndex = FrmGetObjectIndex(formP, MainDeleteBookButton);
-    control = (ControlType *)FrmGetObjectPtr(formP, buttonIndex);
-    if (control != 0) {
-        CtlSetEnabled(control, (Boolean)(itemNum >= 0 && itemNum < gBookCount));
-    }
+    ShelfSetBookEnabled((Boolean)(gBookCount > 0));
 }
 
 const BookInfo *BookListGetSelected(void)

@@ -26,6 +26,8 @@
 #include "TextDb.h"
 #include "GlyphFont.h"
 #include "UiFont.h"
+#include "UiGlyphs.h"
+#include "GotoForm.h"
 #include "LorePilotReader_Rsc.h"
 
 #define kReaderW            160
@@ -34,12 +36,15 @@
 #define kReaderDefaultFtr   8
 #define kReaderProgressRows 2
 
-/* Bottom tap strip, split into three equal columns (x 0..52 / 53..105 /
- * 106..159). It starts at y 148: below the last possible body glyph row in
- * both layouts (8px text ends at y 146), so no text is ever covered. */
+/* Bottom tap strip, split into four equal columns of 40px: previous page,
+ * jump to page, back to the bookshelf, next page. It starts at y 148, below
+ * the last possible body glyph row in both layouts (8px text ends at y 146),
+ * so no text is ever covered. */
 #define kReaderTapTop       148
-#define kReaderTapLeftEnd   53
-#define kReaderTapRightFrom 106
+#define kReaderTapZoneW     (kReaderW / 4)          /* 40 */
+#define kReaderTapZone1     kReaderTapZoneW         /* 40  end of "prev"   */
+#define kReaderTapZone2     (2 * kReaderTapZoneW)   /* 80  end of "goto"   */
+#define kReaderTapZone3     (3 * kReaderTapZoneW)   /* 120 end of "shelf"  */
 
 static TextDb     gReaderDb;
 static Boolean    gReaderOpen = false;
@@ -50,6 +55,27 @@ static Boolean    gReaderFontReady = false;
 static UInt16     gReaderCell = 8;
 static UInt16     gReaderPageIndex = 0;
 static Boolean    gReaderRequested = false;
+/* Set while the reader hands the screen to the goto panel, so the
+ * frmCloseEvent that FrmGotoForm delivers does not close the book. */
+static Boolean    gGotoPending = false;
+
+/* Footer labels, drawn from the built-in glyphs so they work without any
+ * installed font: prev page / goto / back to shelf / next page.
+ *
+ * Each label is centred inside its own 40px column. */
+static const UInt16 kReaderLabelPrev[]  = { 0xC9CF, 0xD2BB, 0xD2B3 };
+static const UInt16 kReaderLabelGoto[]  = { 0xCCF8, 0xD7AA };
+static const UInt16 kReaderLabelShelf[] = { 0xBBD8, 0xCAE9, 0xBCDC };
+static const UInt16 kReaderLabelNext[]  = { 0xCFC2, 0xD2BB, 0xD2B3 };
+
+#define kReaderLabelX(zone, count) \
+    ((Int16)((zone) * kReaderTapZoneW + \
+             (kReaderTapZoneW - (count) * kUiGlyphWidth) / 2))
+
+#define kReaderPrevX   kReaderLabelX(0, 3)
+#define kReaderGotoX   kReaderLabelX(1, 2)
+#define kReaderShelfX  kReaderLabelX(2, 3)
+#define kReaderNextX   kReaderLabelX(3, 3)
 
 /*------------------------------------------------------------------ helpers*/
 
@@ -199,11 +225,14 @@ static void ReaderDrawFooter(void)
     /* Black band covers the text rows plus the progress rows. */
     ReaderFillBand(top, (UInt16)(rows + progressRows));
 
-    UiFontDrawText(2, (Int16)top, "PREV", true);
-    /* "MENU" is 4 chars * 6 px = 24 px; this centres it on x=80 exactly. */
-    UiFontDrawText((Int16)((kReaderW - 4 * kUiFontWidth) / 2), (Int16)top,
-                   "MENU", true);
-    UiFontDrawText(134, (Int16)top, "NEXT", true);
+    UiGlyphsDrawText(kReaderPrevX, (Int16)top, kReaderLabelPrev,
+                     (UInt16)(sizeof(kReaderLabelPrev) / sizeof(UInt16)), true);
+    UiGlyphsDrawText(kReaderGotoX, (Int16)top, kReaderLabelGoto,
+                     (UInt16)(sizeof(kReaderLabelGoto) / sizeof(UInt16)), true);
+    UiGlyphsDrawText(kReaderShelfX, (Int16)top, kReaderLabelShelf,
+                     (UInt16)(sizeof(kReaderLabelShelf) / sizeof(UInt16)), true);
+    UiGlyphsDrawText(kReaderNextX, (Int16)top, kReaderLabelNext,
+                     (UInt16)(sizeof(kReaderLabelNext) / sizeof(UInt16)), true);
 
     if (progressRows < kReaderProgressRows) {
         return;
@@ -387,19 +416,45 @@ static void ReaderFormClose(void)
     gReaderRequested = false;
 }
 
-/* Bottom third-tap strip. */
-static Boolean ReaderHandleTap(Int16 x, Int16 y)
+/* Bottom four-tap strip: previous / goto / bookshelf / next. */
+static Boolean ReaderHandleTap(const EventType *eventP)
 {
+    Int16 x;
+    Int16 y;
+
+    if (eventP->eType == penUpEvent) {
+        x = eventP->data.penUp.end.x;
+        y = eventP->data.penUp.end.y;
+    } else {
+        x = eventP->screenX;
+        y = eventP->screenY;
+    }
+
     if (y < kReaderTapTop) return false;
 
-    if (x <= kReaderTapLeftEnd) {
+    /* Swallow the pen-down so nothing else reacts; the action happens on the
+     * pen-up, which also keeps a modal dialog from opening mid-stroke. */
+    if (eventP->eType == penDownEvent) return true;
+
+    if (x < kReaderTapZone1) {
         if (ReaderPrevPage()) {
             ReaderDrawAll();
         }
         return true;
     }
 
-    if (x < kReaderTapRightFrom) {
+    if (x < kReaderTapZone2) {
+        /* Hand off to the self-drawn keypad panel; it returns to this form. */
+        GotoFormRequest(gReaderDb.header.firstPage,
+                        gReaderDb.header.firstPage +
+                            gReaderDb.header.pageCount - 1,
+                        ReaderGlobalPage());
+        gGotoPending = true;
+        FrmGotoForm(GotoForm);
+        return true;
+    }
+
+    if (x < kReaderTapZone3) {
         /* Close the database before switching forms, like the test forms do:
          * frmCloseEvent delivery order is not guaranteed across ROMs. */
         ReaderFormClose();
@@ -420,7 +475,16 @@ Boolean ReaderFormHandleEvent(EventType *eventP)
     switch (eventP->eType) {
         case frmOpenEvent:
             FrmDrawForm(FrmGetActiveForm());
+            /* Any pending goto hand-off is over once this form is back. */
+            gGotoPending = false;
             if (gReaderRequested && gReaderOpen) {
+                /* Coming back from the goto panel? Apply its result. */
+                UInt32 page;
+
+                if (GotoFormTakePage(&page)) {
+                    (void)ReaderLoadPage(
+                        (UInt16)(page - gReaderDb.header.firstPage));
+                }
                 ReaderDrawAll();
             }
             handled = true;
@@ -434,12 +498,18 @@ Boolean ReaderFormHandleEvent(EventType *eventP)
             break;
 
         case frmCloseEvent:
-            ReaderFormClose();
+            if (gGotoPending) {
+                /* Handing the screen to the goto panel: keep the book open. */
+                gGotoPending = false;
+            } else {
+                ReaderFormClose();
+            }
             handled = true;
             break;
 
         case penDownEvent:
-            handled = ReaderHandleTap(eventP->screenX, eventP->screenY);
+        case penUpEvent:
+            handled = ReaderHandleTap(eventP);
             break;
 
         case keyDownEvent:

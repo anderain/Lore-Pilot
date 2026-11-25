@@ -11,6 +11,7 @@
 // bands so their glyphs are drawn with value 0.
 
 import { HYBRID_FONT_BYTES, HYBRID_FONT_HEIGHT } from '../fonts/hybrid6x8';
+import { UI_GLYPH_WIDTH, uiGlyphRows } from '../fonts/uiGlyphs';
 import { glyphFor, type GlyphFont } from './glyphFont';
 import { lookupGb } from './gb2312';
 import type { Page } from './paginate';
@@ -25,6 +26,25 @@ export const PROGRESS_BORDER_Y = 158;
 export const PROGRESS_FILL_Y = 159;
 export const BODY_Y = HEADER_ROWS;
 export const BODY_HEIGHT = FOOTER_Y - HEADER_ROWS; // 142
+
+/** Footer labels: 上一页 / 跳转 / 回书架 / 下一页, from the built-in glyph table.
+ *  Four equal 40px columns; each label is centred in its own column. */
+export const FOOTER_LABEL_PREV = [0xc9cf, 0xd2bb, 0xd2b3] as const;
+export const FOOTER_LABEL_GOTO = [0xccf8, 0xd7aa] as const;
+export const FOOTER_LABEL_SHELF = [0xbbd8, 0xcae9, 0xbcdc] as const;
+export const FOOTER_LABEL_NEXT = [0xcfc2, 0xd2bb, 0xd2b3] as const;
+
+export const FOOTER_ZONE_W = SCREEN_W / 4; // 40
+
+/** Left edge of a label centred in column `zone` (0-based). */
+function labelX(zone: number, count: number): number {
+  return zone * FOOTER_ZONE_W + Math.floor((FOOTER_ZONE_W - count * UI_GLYPH_WIDTH) / 2);
+}
+
+export const FOOTER_PREV_X = labelX(0, 3);
+export const FOOTER_GOTO_X = labelX(1, 2);
+export const FOOTER_SHELF_X = labelX(2, 3);
+export const FOOTER_NEXT_X = labelX(3, 3);
 
 export interface RenderState {
   displayName: string;
@@ -62,7 +82,6 @@ function drawAscii(
     }
   }
 }
-
 function drawAsciiText(
   bits: Uint8Array,
   text: string,
@@ -74,6 +93,42 @@ function drawAsciiText(
   for (const ch of text) {
     drawAscii(bits, ch, cx, y, ink);
     cx += 6;
+  }
+}
+
+/** Draw one built-in 8x8 Chinese glyph, using `ink` as the pixel value. */
+function drawUiGlyph(
+  bits: Uint8Array,
+  code: number,
+  x: number,
+  y: number,
+  ink: 0 | 1,
+): void {
+  const rows = uiGlyphRows(code);
+  if (rows === null) return;
+  for (let row = 0; row < UI_GLYPH_WIDTH; row++) {
+    const byte = rows[row];
+    for (let col = 0; col < UI_GLYPH_WIDTH; col++) {
+      if ((byte & (0x80 >> col)) === 0) continue;
+      const px = x + col;
+      const py = y + row;
+      if (px < 0 || px >= SCREEN_W || py < 0 || py >= SCREEN_H) continue;
+      bits[py * SCREEN_W + px] = ink;
+    }
+  }
+}
+
+function drawUiGlyphText(
+  bits: Uint8Array,
+  codes: readonly number[],
+  x: number,
+  y: number,
+  ink: 0 | 1,
+): void {
+  let cx = x;
+  for (const code of codes) {
+    drawUiGlyph(bits, code, cx, y, ink);
+    cx += UI_GLYPH_WIDTH;
   }
 }
 
@@ -138,12 +193,12 @@ export function renderScreen(
     }
   }
 
-  // Footer: white text on black.
-  drawAsciiText(bits, 'PREV', 2, FOOTER_Y, 0);
-  // "MENU" is 4 chars = 24 px, so x = (160 - 24) / 2 = 68 puts it exactly
-  // on the screen centre line.
-  drawAsciiText(bits, 'MENU', (SCREEN_W - 4 * 6) / 2, FOOTER_Y, 0);
-  drawAsciiText(bits, 'NEXT', 134, FOOTER_Y, 0);
+  // Footer: white text on black. All four labels come from the built-in
+  // 8x8 glyph set, so the footer works without any installed font.
+  drawUiGlyphText(bits, FOOTER_LABEL_PREV, FOOTER_PREV_X, FOOTER_Y, 0);
+  drawUiGlyphText(bits, FOOTER_LABEL_GOTO, FOOTER_GOTO_X, FOOTER_Y, 0);
+  drawUiGlyphText(bits, FOOTER_LABEL_SHELF, FOOTER_SHELF_X, FOOTER_Y, 0);
+  drawUiGlyphText(bits, FOOTER_LABEL_NEXT, FOOTER_NEXT_X, FOOTER_Y, 0);
 
   // Progress: solid white border line, then a white fill segment.
   for (let x = 0; x < SCREEN_W; x++) {

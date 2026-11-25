@@ -12,6 +12,7 @@
 
 #include "FontList.h"
 #include "GlyphFont.h"
+#include "Shelf.h"
 #include "LorePilotReader_Rsc.h"
 
 #define kFontListMax    16
@@ -99,8 +100,6 @@ void FontListRefresh(FormType *formP)
 {
     ListType *list;
     UInt16 i;
-    UInt16 minusIndex;
-    ControlType *minus;
     Int16 keep;
 
     list = FontListGet(formP);
@@ -128,11 +127,7 @@ void FontListRefresh(FormType *formP)
     }
     LstDrawList(list);
 
-    minusIndex = FrmGetObjectIndex(formP, MainDeleteFontButton);
-    minus = (ControlType *)FrmGetObjectPtr(formP, minusIndex);
-    if (minus != 0) {
-        CtlSetEnabled(minus, gFontCount > 0);
-    }
+    ShelfSetFontEnabled((Boolean)(gFontCount > 0));
 }
 
 Int16 FontListGetSelection(FormType *formP)
@@ -146,19 +141,13 @@ Int16 FontListGetSelection(FormType *formP)
 void FontListSelect(FormType *formP, Int16 itemNum)
 {
     ListType *list = FontListGet(formP);
-    UInt16 minusIndex;
-    ControlType *minus;
 
     if (list == 0) return;
     gFontSelected = itemNum;
     LstSetSelection(list, itemNum);
     LstDrawList(list);
 
-    minusIndex = FrmGetObjectIndex(formP, MainDeleteFontButton);
-    minus = (ControlType *)FrmGetObjectPtr(formP, minusIndex);
-    if (minus != 0) {
-        CtlSetEnabled(minus, itemNum >= 0 && itemNum < gFontCount);
-    }
+    ShelfSetFontEnabled((Boolean)(gFontCount > 0));
 }
 
 Boolean FontListDeleteSelected(FormType *formP)

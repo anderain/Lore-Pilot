@@ -57,14 +57,16 @@ Copy-Item font-packer\out\LPF12F.pdb lore-teller\public\fonts\
 ## 版面
 
 ```
-y 0..7     头部（黑底白字）：displayName + page/total（6×8 ASCII）
+y 0..7     头部（黑底白字）：displayName + page/total（内置 6×8 ASCII）
 y 8..149   正文（白底黑字，垂直居中）：8px 17 行 或 12px 11 行
-y 150..157 底部（黑底白字）：PREV  MENU  NEXT（6×8 ASCII）
+y 150..157 底部（黑底白字）：上一页  跳转  回书架  下一页（内置 8×8 中文，四等分）
 y 158      进度条边框（整行白线）
 y 159      进度条填充（白色，长度 = 160 × page / total）
 ```
 
-6×8 `FontHybird` 只用于头部和底部的 ASCII 界面文字，不渲染正文。
+6×8 `FontHybird` 只用于头部的 ASCII 界面文字，不渲染正文；页脚中文来自
+`reader/Src/UiGlyphs.c` 的内置字形表，由 `scripts/gen-ui-glyphs.mjs` 生成本仓库
+的 `src/fonts/uiGlyphs.ts`，所以预览与设备一致。
 上下两条黑带同时充当正文的视觉分隔，正文不再紧贴 UI。
 
 ## 目录

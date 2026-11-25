@@ -48,10 +48,15 @@ Push-Location $rscDir
 if ($LASTEXITCODE -ne 0) { Pop-Location; throw 'pilrc failed' }
 Pop-Location
 
+# PilRC warns about a missing Graffiti State Indicator on forms with editable
+# fields. That indicator is a Palm OS 3.0 form object, so it is correct to omit
+# it for a 2.0 target; the warning is expected.
+
 # 2. compile --------------------------------------------------------------
 $sources = @(
-    'UiFont', 'TextDb', 'BookList', 'ReaderForm',
-    'FontList', 'GlyphFont', 'GbTest', 'GlyphTest', 'LorePilotReader'
+    'UiFont', 'UiGlyphs', 'UiButton', 'Shelf', 'GotoForm', 'TextDb',
+    'BookList', 'ReaderForm', 'FontList', 'GlyphFont', 'GbTest', 'GlyphTest',
+    'LorePilotReader'
 )
 
 $objDir = Join-Path $OutDir 'obj'
