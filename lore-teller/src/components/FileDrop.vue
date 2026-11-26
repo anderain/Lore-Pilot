@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { FileUp, RefreshCw } from 'lucide-vue-next';
 
 const props = defineProps<{
   fileInfo: { name: string; size: number } | null;
@@ -52,10 +53,14 @@ function formatSize(bytes: number): string {
       @drop.prevent="onDrop"
     >
       <p class="text-sm text-ink-soft">把 TXT 拖到这里，或者</p>
-      <label class="mt-3 inline-block cursor-pointer rounded-lg bg-seal px-4 py-2 text-sm font-medium text-white transition hover:bg-seal-hover">
+      <label class="mt-3 inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-seal px-4 py-2 text-sm font-medium text-white transition hover:bg-seal-hover">
+        <FileUp :size="16" />
         选择 TXT 文件
         <input type="file" accept=".txt,text/plain" class="hidden" @change="onPick" />
       </label>
+      <p class="mt-4 text-xs text-ink-faint">
+        支持 UTF-8 / GBK。文件只在浏览器本地处理，不会上传。
+      </p>
       <p v-if="error" class="mt-3 text-sm text-red-700">{{ error }}</p>
     </div>
 
@@ -65,7 +70,8 @@ function formatSize(bytes: number): string {
           <p class="font-medium text-ink">{{ props.fileInfo.name }}</p>
           <p class="mt-0.5 text-sm text-ink-soft">{{ formatSize(props.fileInfo.size) }}</p>
         </div>
-        <label class="cursor-pointer rounded-lg border border-line px-3 py-1.5 text-sm text-ink-soft transition hover:border-ink-faint">
+        <label class="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-sm text-ink-soft transition hover:border-ink-faint">
+          <RefreshCw :size="14" />
           重新选择
           <input type="file" accept=".txt,text/plain" class="hidden" @change="onPick" />
         </label>

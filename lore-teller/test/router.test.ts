@@ -50,6 +50,10 @@ describe('router shell', () => {
     expect(wrapper.find('h1').text()).toBe('Lore-Pilot');
     expect(text).toContain('为 Palm OS 2.0 打造的中文阅读器实验项目');
     expect(text).toContain('160×160 单色屏');
+    // The hero shows the project logo next to the copy.
+    const heroLogo = wrapper.find('main img');
+    expect(heroLogo.exists()).toBe(true);
+    expect(heroLogo.attributes('alt')).toBe('Lore-Pilot');
     // Screenshot captions and both entry points to the tool.
     for (const label of ['实机', '书架', '阅读页', '跳转']) {
       expect(text).toContain(label);

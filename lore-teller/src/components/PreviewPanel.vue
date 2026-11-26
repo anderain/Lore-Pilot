@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
+import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import { paginate } from '../lib/paginate';
 import { paintToCanvas, renderScreen } from '../lib/render';
 import { parseGlyphFont, type GlyphFont } from '../lib/glyphFont';
@@ -144,21 +145,23 @@ onMounted(async () => {
 
     <div class="mt-3 flex items-center justify-between text-sm">
       <button
-        class="rounded-lg border border-line px-3 py-1 disabled:opacity-40"
+        class="inline-flex items-center gap-1 rounded-lg border border-line px-3 py-1 disabled:opacity-40"
         :disabled="pageIndex === 0"
         @click="prev"
       >
-        PREV
+        <ChevronLeft :size="14" />
+        上一页
       </button>
       <span class="font-mono text-xs text-ink-soft">
         {{ globalPage }} / {{ totalPages }}　本卷 {{ pageIndex + 1 }}/{{ pages.length }}
       </span>
       <button
-        class="rounded-lg border border-line px-3 py-1 disabled:opacity-40"
+        class="inline-flex items-center gap-1 rounded-lg border border-line px-3 py-1 disabled:opacity-40"
         :disabled="pageIndex + 1 >= pages.length"
         @click="next"
       >
-        NEXT
+        下一页
+        <ChevronRight :size="14" />
       </button>
     </div>
   </div>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Download, Eye } from 'lucide-vue-next';
 import type { PartResult } from '../lib/split';
 
 defineProps<{
@@ -35,9 +36,10 @@ function downloadAll(parts: PartResult[]) {
       </h2>
       <button
         v-if="parts.length > 1"
-        class="rounded-lg border border-line px-3 py-1.5 text-sm hover:border-ink-faint"
+        class="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-sm hover:border-ink-faint"
         @click="downloadAll(parts)"
       >
+        <Download :size="14" />
         下载全部
       </button>
     </div>
@@ -57,15 +59,17 @@ function downloadAll(parts: PartResult[]) {
         </div>
         <div class="mt-1.5 flex gap-2">
           <button
-            class="rounded-lg border border-line px-3 py-1 text-sm hover:border-ink-faint"
+            class="inline-flex items-center gap-1.5 rounded-lg border border-line px-3 py-1 text-sm hover:border-ink-faint"
             @click="emit('preview', part)"
           >
+            <Eye :size="14" />
             预览
           </button>
           <button
-            class="rounded-lg bg-seal px-3 py-1 text-sm text-white transition hover:bg-seal-hover"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-seal px-3 py-1 text-sm text-white transition hover:bg-seal-hover"
             @click="download(part)"
           >
+            <Download :size="14" />
             下载
           </button>
         </div>

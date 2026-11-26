@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { ChevronLeft, ChevronRight, RefreshCw } from 'lucide-vue-next';
 import FileDrop from '../components/FileDrop.vue';
 import OptionsForm, { type Options } from '../components/OptionsForm.vue';
 import PartList from '../components/PartList.vue';
@@ -144,11 +145,12 @@ onBeforeUnmount(() => abort?.abort());
     <!-- Step bar: previous | step name | next -->
     <div class="flex items-center gap-2 rounded-xl border border-line bg-card px-3 py-2 shadow-paper">
       <button
-        class="rounded-lg border border-line px-3 py-1.5 text-sm text-ink-soft transition hover:border-ink-faint disabled:opacity-40"
+        class="inline-flex items-center gap-1 rounded-lg border border-line px-3 py-1.5 text-sm text-ink-soft transition hover:border-ink-faint disabled:opacity-40"
         :disabled="step === 0 || busy"
         @click="goPrev"
       >
-        ← 上一步
+        <ChevronLeft :size="16" />
+        上一步
       </button>
 
       <div class="flex flex-1 items-center justify-center gap-2 text-sm font-medium text-ink">
@@ -158,28 +160,27 @@ onBeforeUnmount(() => abort?.abort());
 
       <button
         v-if="step < 2"
-        class="rounded-lg bg-seal px-3 py-1.5 text-sm font-medium text-white transition hover:bg-seal-hover disabled:opacity-40"
+        class="inline-flex items-center gap-1 rounded-lg bg-seal px-3 py-1.5 text-sm font-medium text-white transition hover:bg-seal-hover disabled:opacity-40"
         :disabled="(step === 0 && !canLeaveStep0) || (step === 1 && !canLeaveStep1)"
         @click="goNext"
       >
-        下一步 →
+        下一步
+        <ChevronRight :size="16" />
       </button>
       <button
         v-else
-        class="rounded-lg bg-seal px-3 py-1.5 text-sm font-medium text-white transition hover:bg-seal-hover disabled:opacity-40"
+        class="inline-flex items-center gap-1 rounded-lg bg-seal px-3 py-1.5 text-sm font-medium text-white transition hover:bg-seal-hover disabled:opacity-40"
         :disabled="busy"
         @click="regenerate"
       >
+        <RefreshCw :size="16" />
         重新生成
       </button>
     </div>
 
     <!-- Step 1 -->
-    <section v-if="step === 0" class="space-y-4">
+    <section v-if="step === 0">
       <FileDrop :file-info="fileInfo" @file="onFile" />
-      <p class="text-xs text-ink-faint">
-        支持 UTF-8 / GBK。文件只在浏览器本地处理，不会上传。
-      </p>
     </section>
 
     <!-- Step 2 -->
@@ -232,12 +233,6 @@ onBeforeUnmount(() => abort?.abort());
             :display-name="result.displayName"
           />
         </div>
-
-        <footer class="pt-2 text-xs text-ink-faint">
-          版面：160×160，顶部 8 行黑底显示名称与页码，正文 {{ result.charsPerLine }} 字/行、
-          {{ result.linesPerPage }} 行/页并垂直居中，顶部底部反色，
-          最底 2 行是进度条，底部 上一页 / 跳转 / 回书架 / 下一页。
-        </footer>
       </template>
     </section>
   </main>

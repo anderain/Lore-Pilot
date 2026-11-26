@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
+import { Scissors } from 'lucide-vue-next';
+import logo from '../assets/lore-pilot-512.png';
 import photo from '../assets/00-photo.webp';
 import shotBookshelf from '../assets/01-bookshelf.png';
 import shotReader from '../assets/02-reader.png';
@@ -52,22 +54,36 @@ const installSteps: InstallStep[] = [
 
 <template>
   <main class="mx-auto max-w-5xl space-y-14 px-4 py-10">
-    <!-- Hero -->
-    <section class="space-y-3">
-      <h1 class="text-4xl font-semibold tracking-tight">Lore-Pilot</h1>
-      <p class="max-w-2xl text-lg text-ink-soft">
-        为 Palm OS 2.0 打造的中文阅读器实验项目
-      </p>
-      <p class="max-w-2xl text-sm leading-relaxed text-ink-faint">
-        目标在 160×160 单色屏、1 MB 内存的 Palm 上运行，更高版本也可用。
-      </p>
-      <div class="pt-2">
-        <RouterLink
-          to="/tool"
-          class="inline-block rounded-lg bg-seal px-5 py-2.5 text-sm font-medium text-white transition hover:bg-seal-hover"
-        >
-          打开分卷工具 →
-        </RouterLink>
+    <!-- Hero: stacked with the logo on top on phones; from 640px up the copy
+         sits on the left and the image is pushed to the right edge. The image
+         comes first in the DOM so the mobile order needs no extra classes;
+         `sm:order-last` moves it to the end of the row on desktop. -->
+    <section class="flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
+      <img
+        :src="logo"
+        alt="Lore-Pilot"
+        width="512"
+        height="512"
+        class="w-28 shrink-0 sm:order-last sm:w-36"
+      />
+
+      <div class="space-y-3">
+        <h1 class="text-4xl font-semibold tracking-tight">Lore-Pilot</h1>
+        <p class="text-lg text-ink-soft">
+          为 Palm OS 2.0 打造的中文阅读器实验项目
+        </p>
+        <p class="text-sm leading-relaxed text-ink-faint">
+          目标在 160×160 单色屏、1 MB 内存的 Palm 上运行，更高版本也可用。
+        </p>
+        <div class="pt-2">
+          <RouterLink
+            to="/tool"
+            class="inline-flex items-center gap-1.5 rounded-lg bg-seal px-5 py-2.5 text-sm font-medium text-white transition hover:bg-seal-hover"
+          >
+            <Scissors :size="16" />
+            打开分卷工具
+          </RouterLink>
+        </div>
       </div>
     </section>
 
@@ -164,8 +180,9 @@ const installSteps: InstallStep[] = [
         </p>
         <RouterLink
           to="/tool"
-          class="rounded-lg bg-seal px-5 py-2.5 text-sm font-medium text-white transition hover:bg-seal-hover"
+          class="inline-flex items-center gap-1.5 rounded-lg bg-seal px-5 py-2.5 text-sm font-medium text-white transition hover:bg-seal-hover"
         >
+          <Scissors :size="16" />
           打开工具
         </RouterLink>
       </div>

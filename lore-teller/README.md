@@ -3,6 +3,7 @@
 把 TXT 排版成 Palm OS 160×160 的书页，切成可单独安装的 `LPBK` 卷 PDB。
 
 - Vue 3 + TypeScript + Vite + Tailwind CSS
+- 图标用 [Lucide](https://lucide.dev)（`lucide-vue-next`，ISC 协议，按需 tree-shake）
 - 全部处理在浏览器本地完成，不上传文件
 - 生成的文件用 Lore-Pilot 的阅读器读取
 
@@ -17,7 +18,10 @@ npm run build      # 产出 dist/
 ```
 
 页面：`/#/` 是项目介绍与截图（`src/views/HomeView.vue`），`/#/tool` 是三步分卷工具
-（`src/views/ToolView.vue`）。截图素材放在 `src/assets/`。
+（`src/views/ToolView.vue`）。素材都在 `src/assets/`：四张截图（`00-photo.webp`、
+`01-bookshelf.png`、`02-reader.png`、`03-goto.png`）和两版项目 logo
+（`lore-pilot-256.png` 用于导航栏与 favicon，`lore-pilot-512.png` 用于首页 Hero）。
+logo 是透明背景 PNG，直接叠在纸张底色上。
 
 ## 必需：准备预览字库
 
@@ -43,7 +47,8 @@ npm run generate   # LPF08F/LPF12F -> public/fonts/，PRC -> public/
 
 工具页是一个三步向导（`/#/tool`）：
 
-1. **第 1 步 · 选择文件** —— 拖入或选择 `.txt`，显示文件名与体积；
+1. **第 1 步 · 选择文件** —— 拖入或选择 `.txt`；虚线框里注明支持 UTF-8 / GBK、
+   文件只在浏览器本地处理；
 2. **第 2 步 · 分卷设置** —— 每卷页数（100 / 200 / 500 / 1000）、显示名称
    （1–16 位字母数字）、字号（8px / 12px）、文本编码（UTF-8 / GBK），每项都有一行说明；
 3. **第 3 步 · 预览与导出** —— 进入即自动生成；生成中显示旋转指示器与
