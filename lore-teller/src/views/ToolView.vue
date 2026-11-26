@@ -202,7 +202,7 @@ onBeforeUnmount(() => abort?.abort());
         <div>
           <p class="text-sm font-medium text-ink">{{ progressText }}</p>
           <p class="mt-0.5 text-xs text-ink-faint">
-            正在后台生成，界面不会卡住。
+            正在后台生成，请稍等……
           </p>
         </div>
       </div>
