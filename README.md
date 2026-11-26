@@ -8,30 +8,29 @@ laid out into 160x160 pages and split into standalone volumes, so a 1 MB device
 only ever holds the volume being read. The whole UI is drawn from a built-in 8x8
 glyph table, so the reader works without any installed font.
 
-中文阅读器可行性验证，目标设备是 **Palm OS 2.0 / Pilot Professional**
+实验性中文阅读器，目标设备是 **Palm OS 2.0 / Pilot Professional**
 （160×160 单色、1MB RAM、16MHz 68000）。仓库里包含三部分：
 
-- `reader/` — CodeWarrior for Palm OS 9.x 工程，产出 `LorePilotReader.prc`；
-- `font-packer/` — Node 18+ 零依赖脚本，把点阵字模打包成 Palm OS PDB；
-- 生成的头文件（`reader/Src/GlyphAtlas.h`、`GbSamples.h`、`GbSamples12.h`、
-  `GbText.h`）已入库，保证没有字体的人也能直接编译。
+- `reader/`：CodeWarrior for Palm OS 9.x 工程，产出 `LorePilotReader.prc`；
+- `font-packer/`：Node 18+ 零依赖脚本，把点阵字模打包成 Palm OS PDB；
+- `lore-teller/`：Web网站+工具，用来分割小说。
 
 ## 快速开始
 
 ### 安装
 
-1. **安装字体** —— 把 `LPF08F.pdb`（8×8）或 `LPF12F.pdb`（12×12）同步到机器上。
+1. **安装字体**： 把 `LPF08F.pdb`（8×8）或 `LPF12F.pdb`（12×12）同步到机器上。
    它们是中文点阵字库，没有字体时正文无法显示。
-2. **安装程序** —— 同步 `LorePilotReader.prc`，启动器里会出现 Lore-Pilot 图标。
+2. **安装程序**：同步 `LorePilotReader.prc`，启动器里会出现 Lore-Pilot 图标。
 3. **切分书页并导入** —— 用 [Lore-Teller](#书页-pdblore-teller) 把 TXT 转成
-   `LPB_<书名>_<卷号>.pdb`，按需要只导入想读的那几卷。
+   `LPB_<书名>_<卷号>.pdb`，按需要只导入想读的卷。
 
 ### 使用
 
-- **管理字体和卷** —— 书架页上半是「书架」（每行一卷，显示卷号与页范围），
+- **管理字体和卷**：书架页上半是「书架」（每行一卷，显示卷号与页范围），
   下半是「字体」。选中后按「阅读」打开、「删除」移除。换过库之后，在菜单
   `Options → Refresh Lists` 刷新列表。
-- **阅读** —— 页脚四等分：上一页 / 跳转 / 回书架 / 下一页。点「跳转」用数字键盘
+- **阅读**：页脚功能区四等分：上一页 / 跳转 / 回书架 / 下一页。点「跳转」用数字键盘
   输入页码，硬件上下键也能翻页。到卷首卷尾会停住，换卷请回书架打开下一卷。
 
 更细的版面、触控与测试菜单说明见 [设备端细节](#设备端细节)。
@@ -112,7 +111,7 @@ node font-packer/src/pack-gb2312.mjs --level full  --cell 12
 
 书架的两个标签（`书架` / `字体`）和三个按钮（`阅读` / `删除`）都是**自绘**的，
 字形来自 `reader/Src/UiGlyphs.c` 内置的 8×8 表，所以不装任何字库也能显示中文；
-按钮保留按下反色与禁用灰显。列表行里的书名是 PDB 头里的 ASCII 名称，仍按 ASCII 显示。
+按钮保留按下反色与禁用灰显。列表行里的书名是 PDB 头里的 ASCII 名称。
 
 阅读页按 web 预览的版面绘制：
 
@@ -129,9 +128,8 @@ y 159       进度条填充（长度 = 160 × 页码 / 总页数）
 web 预览用的同一份数据，两边不会漂移。
 
 阅读页（以及两个测试页）先把整帧画进一块内存缓冲，再用 `WinDrawBitmap` 一次贴到
-屏幕（`reader/Src/ScreenBuf.c`），所以**翻页没有闪烁**：旧实现先擦全屏再逐笔重画，
-中间会露出空白帧。字形以 packed 1bpp 直接写进缓冲（8×8 一个字 8 次字节写，旧实现
-约 10 次 `WinDrawLine`），一次翻页的绘制耗时从数十毫秒降到数毫秒。
+屏幕（`reader/Src/ScreenBuf.c`），以此**避免翻页的闪烁**。
+字形以 packed 1bpp 直接写进缓冲。
 
 > 缓冲不用 `BmpCreate` + `BmpGetBits`：后者是 Palm OS 3.5 的 trap。这里自己写
 > 16 字节的 version-0 bitmap 头，像素紧跟其后，只用 1.0 的 `WinDrawBitmap`
@@ -145,24 +143,22 @@ web 预览用的同一份数据，两边不会漂移。
 
 > 面板不使用 `FIELD` 资源：PilRC 生成的字段属性位域与 Palm OS 2.0 读取的
 > `FormFieldType` 不一致，含 `FIELD` 的 form 会被 ROM 误解对象表（模拟器会报
-> 对象跑到屏幕外、按钮消失）。自绘全套控件绕开了这个工具链问题。
+> 对象跑到屏幕外、按钮消失）。
 
 设备上/下硬件键同样是上一页/下一页。**翻页只在本卷内进行**：到卷首/卷尾就停住，
 不会去打开其他卷。页脚的页码与进度条仍按全书计算（如 `201/300`），所以读者知道
 自己在整本书的什么位置。
 所有测试入口在菜单里：
 
-- **Test → Glyph 8x8** — 21 个 8×8 字形（11 个手绘图形 + 10 个汉字），逐字节
+- **Test → Glyph 8x8**： 21 个 8×8 字形（11 个手绘图形 + 10 个汉字），逐字节
   比对 PDB 与内置答案，另有奇数偏移与裁切测试（专门用来验证缓冲的字节位移与裁剪）；
-- **Test → GB2312 8x8** — 《千字文》1250 单元（1000 汉字 + 250 标点）、32 页、
+- **Test → GB2312 8x8**：《千字文》1250 单元（1000 汉字 + 250 标点）、32 页、
   每页 40 单元，`Prev`/`Next` 翻页；
 - **Test → GB2312 12x12** — 同样的 32 页千字文，12×12 字体，13 字/行；
 - **Options → Refresh Lists / About**。
 
-所有测试页都是 1×（放大只用于对照，已移除）。
-
 状态行会显示数据库名、字号、字形数、页数、抽样比对结果与当前页范围；缺库时
-提示 `NO FONT 12x12` 而不崩溃。
+提示 `NO FONT 12x12` 。
 
 ## 目录结构
 
@@ -193,7 +189,7 @@ lore-teller/              Vue 3 网页（Lore-Teller）：TXT → 卷书页 PDB
 Lore-Teller 把 TXT 排版成 160×160 书页，按每卷固定页数输出
 `LPB_<NAME>_<NN>.pdb`（type `LPBK`，creator `LPRD`）。每页一条记录，行偏移表在
 记录内，翻页即记录跳转；卷头带 `partIndex / partCount / firstPage / totalPages`，
-所以页码与进度条按全书连续。**每一卷都是独立文件**：可以只装一卷、只读一卷，
+所以页码与进度条按全书连续。**每一卷都是独立文件**：可以只装一卷，
 1MB 的机器上不需要同时放整本书。
 
 ```powershell
@@ -203,20 +199,19 @@ node ../font-packer/src/pack-gb2312.mjs --level full
 node ../font-packer/src/pack-gb2312.mjs --level full --cell 12
 Copy-Item ..\font-packer\out\LPF08F.pdb public\fonts\
 Copy-Item ..\font-packer\out\LPF12F.pdb public\fonts\
-npm run dev        # 首页 /#/ ，分割器 /#/tool
+npm run dev
 ```
 
-格式与字段见 `lore-teller/docs/text-pdb.md`。Palm 端读取书页 PDB 是下一步。
+格式与字段见 `lore-teller/docs/text-pdb.md`。
 
 ## 已知限制
 
 - 8×8 中文在 160×160 屏上一行 20 字、一页 17 行，单字较小；12×12 每行 13 字、
-  每页 11 行，更好认。两种字号都是 1×，不做放大；
+  每页 11 行；
 - 一级字库（`basic`）不覆盖二级汉字，打包脚本会把文本里超出范围的字放进
-  “extras” 记录，阅读器仍能显示，但单库不再“完整”；
+  “extras” 记录；
 - 目标设备没有 Unicode，正文按 GB2312/GBK 双字节存储；
-- 字体列表只识别 `GLYF`/`LPRD` 数据库；其它应用的数据不会被列出或删除；
-- 删除字体只删数据库本身，不会动 PRC。
+- 字体列表只识别 `GLYF`/`LPRD` 数据库。
 
 ## 许可
 
